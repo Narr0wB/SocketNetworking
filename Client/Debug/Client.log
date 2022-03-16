@@ -1,0 +1,3 @@
+﻿  socketfuncs.cpp
+D:\sussybaqa\c\C++Pyth\Client\socketfuncs.cpp(60,28): warning C4018: '>': errata corrispondenza tra signed e unsigned
+  Client.vcxproj -> D:\sussybaqa\c\C++Pyth\Client\Debug\Client.exe
