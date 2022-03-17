@@ -23,7 +23,7 @@ namespace Message {
 
 	std::vector<unsigned char> recvPackets(SOCKET sckt, bool debug);
 
-	void sendPackets(SOCKET sckt, std::vector<unsigned char> dataToSend, bool debug);
+	void sendPackets(SOCKET sckt, std::vector<unsigned char> dataToSend, const char* typeOfData, bool debug);
 }
 
 

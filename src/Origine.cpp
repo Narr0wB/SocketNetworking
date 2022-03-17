@@ -19,12 +19,14 @@ int main() {
 	
 	SOCKET sckt = Message::createSocket("127.0.0.1", "8081");
 
-	char Command[2000]; 
+	std::string command;
 	while (1) {
-		fgets(Command, 2000, stdin); Command[strlen(Command)-1] = '\0';
-		Message::sendPackets(sckt, Command, false);
+		std::cout << "AAAAAAAA";
+		std::cin >> command;
+		std::vector<unsigned char> Input(command.begin(), command.end());
+		Message::sendPackets(sckt, Input, "c", true);
 		std::vector<unsigned char> response = Message::recvPackets(sckt, true);
-		printf("%s, %d", response.data(), response.size());
+		printf("%s", response.data());
 	}
 
 

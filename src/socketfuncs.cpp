@@ -1,10 +1,6 @@
 #include "socketfuncs.h"
 
 namespace Message {
-	
-	char* toBytes(void* src) {
-		return (char*)src;
-	}
 
 	SOCKET createSocket(LPCSTR IPAdress, LPCSTR Port)
 	{
@@ -37,28 +33,21 @@ namespace Message {
 		return sckt;
 	}
 
-	std::vector<unsigned char> Message::recvAll(SOCKET sckt,unsigned int nOfBytesToRecv)
+	std::vector<unsigned char> Message::recvAll(SOCKET sckt, unsigned int nOfBytesToRecv)
 	{	
-		// Initializing packet and data std::vector
-		std::vector<unsigned char> dataPacket; 
-		
-		// Initializing control variables
-		int receivedTotalBytes = 0;
-		std::vector<unsigned char> chunkOfPacket(nOfBytesToRecv);
-		std::string tempString;
+		// Initializing payload std::vector
+		std::vector<unsigned char> payload(nOfBytesToRecv); 
 
-		
-		// Main loop
-		while (receivedTotalBytes < (nOfBytesToRecv-1)) {
-			int receivedBytes = recv(sckt, (char*)chunkOfPacket.data(), nOfBytesToRecv, 0);
-			tempString += std::string((char*)chunkOfPacket.data());
-			receivedTotalBytes += receivedBytes;
+		// receiveData
+		int receivedBytes = recv(sckt, (char*)payload.data(), nOfBytesToRecv, 0);
+
+		while (!receivedBytes == nOfBytesToRecv) {
+			std::vector<unsigned char> bytesLeft;  
+			recv(sckt, (char*)bytesLeft.data(), (nOfBytesToRecv - receivedBytes), 0);
+			payload.insert(payload.end(), bytesLeft.begin(), bytesLeft.end());
 		}
 
-		std::copy(tempString.begin(), tempString.end(), std::back_inserter(dataPacket));
-		while (dataPacket.size() > nOfBytesToRecv) { dataPacket.pop_back(); }
-
-		return dataPacket;
+		return payload;
 	}
 
 	std::vector<unsigned char> Message::recvPackets(SOCKET sckt, bool debug)
@@ -68,9 +57,9 @@ namespace Message {
 		std::vector<unsigned char> s_typeOfData(1);
 		std::vector<unsigned char> receivedData;
 		
-		int bytesreceived = recv(sckt, (char *)s_packetLength.data(), 4, 0);
-		bytesreceived = recv(sckt, (char*)s_nOfPacketsLeft.data(), 1, 0);
-		bytesreceived = recv(sckt, (char*)s_typeOfData.data(), 1, 0);
+		recv(sckt, (char*)s_packetLength.data(), 4, 0);
+		recv(sckt, (char*)s_nOfPacketsLeft.data(), 1, 0);
+		recv(sckt, (char*)s_typeOfData.data(), 1, 0);
 
 		if (debug) { printf("\nheader %x %x %x %x nOfPacketsLeft %d typeOfData %c\n", s_packetLength[0], s_packetLength[1], s_packetLength[2], s_packetLength[3], s_nOfPacketsLeft[0], s_typeOfData[0]); }
 
@@ -85,11 +74,11 @@ namespace Message {
 		switch (s_typeOfData[0]) {
 			case 99: {
 				while (i_nOfPacketsLeft > 0) {
-					bytesreceived = recv(sckt, (char *)s_packetLength.data(), 4, 0);
-					bytesreceived = recv(sckt, (char*)s_nOfPacketsLeft.data(), 1, 0);
-					bytesreceived = recv(sckt, (char*)s_typeOfData.data(), 1, 0);
+					recv(sckt, (char*)s_packetLength.data(), 4, 0);
+					recv(sckt, (char*)s_nOfPacketsLeft.data(), 1, 0);
+					recv(sckt, (char*)s_typeOfData.data(), 1, 0);
 
-					if (debug) { printf("\nheader %x %x %x %x nOfPacketsLeft %d\n", s_packetLength[0], s_packetLength[1], s_packetLength[2], s_packetLength[3], s_nOfPacketsLeft[0]); }
+					if (debug) { printf("\nheader %x %x %x %x nOfPacketsLeft %d typeOfData: %s\n", s_packetLength[0], s_packetLength[1], s_packetLength[2], s_packetLength[3], s_nOfPacketsLeft[0], s_typeOfData.data()); }
 
 					i_packetLength = 0; i_nOfPacketsLeft = 0;
 					memcpy(&i_packetLength, s_packetLength.data(), sizeof(i_packetLength));
@@ -105,47 +94,33 @@ namespace Message {
 				break;
 			}
 		}
-		/*while (i_nOfPacketsLeft > 0) {
-			bytesreceived = recv(sckt, s_packetLength.data(), 4, 0);
-			bytesreceived = recv(sckt, s_nOfPacketsLeft.data(), 1, 0);
-
-			if (debug) { printf("\nheader %x %x %x %x nOfPacketsLeft %d\n", s_packetLength[0], s_packetLength[1], s_packetLength[2], s_packetLength[3], s_nOfPacketsLeft[0]); }
-
-			i_packetLength = 0; i_nOfPacketsLeft = 0;
-			memcpy(&i_packetLength, s_packetLength.data(), sizeof(i_packetLength));
-			memcpy(&i_nOfPacketsLeft, s_nOfPacketsLeft.data(), sizeof(i_nOfPacketsLeft));
-			i_packetLength = ntohl(i_packetLength);
-
-
-			totalObjectLength += i_packetLength;
-			payload = recvAll(sckt, i_packetLength);
-			receivedData.insert(receivedData.end(), payload.begin(), payload.end());
-		}*/
 		
 		return receivedData;
 	}
 
-	void Message::sendPackets(SOCKET sckt, std::vector<unsigned char> dataToSend, bool debug)
+	void Message::sendPackets(SOCKET sckt, std::vector<unsigned char> dataToSend, const char* typeOfData, bool debug)
 	{
 		// Declare & Initialize variables
-		int32_t i_sizeOfData = dataToSend.size(); int8_t i_numberOfPackets = (int8_t)ceil((float)i_sizeOfData / (float)PACKET_SIZE);
-		char *s_sizeOfData = toBytes(&i_sizeOfData);
-		int bytesPacketSent = 0; 
-		std::string strCommand((char*) dataToSend);
+		int32_t i_sizeOfData = dataToSend.size(); int8_t i_nOfPacketsToSend = (int8_t)ceil((float)i_sizeOfData / (float)PACKET_SIZE);
+		int totalBytesSent = 0; 
 
-		// Loop through the packets
-		for (int i = 0; i < i_numberOfPackets; i++) {
 
-			int8_t i_numberOfPacketsLeft = i_numberOfPackets - (i+1);
-			char* s_numberOfPacketsLeft = toBytes(&i_numberOfPacketsLeft);
-			std::string substr = strCommand.substr(i * PACKET_SIZE, min(PACKET_SIZE, strCommand.length() - bytesPacketSent));
-			int32_t i_lengthOfPacket = substr.length(); char *s_lengthOfPacket = toBytes(&i_lengthOfPacket);
+		// Loop through the payloads
+		for (int i = 0; i < i_nOfPacketsToSend; i++) {
 
-			send(sckt, s_lengthOfPacket, 4, 0);
-			send(sckt, s_numberOfPacketsLeft, 1, 0);
-			bytesPacketSent += send(sckt, substr.c_str(), substr.length(), 0);
+			std::vector<unsigned char>::const_iterator startIndex = (dataToSend.begin() + (i * PACKET_SIZE));
+			std::vector<unsigned char>::const_iterator endIndex = (dataToSend.begin() + (i * PACKET_SIZE) + min(PACKET_SIZE, dataToSend.size() - totalBytesSent));
+			std::vector<unsigned char> payload(startIndex, endIndex);
 
-			if (debug) { printf("\nheader: %x %x %x %x nOfPacketsLeft: %d Payload: %s\n", s_lengthOfPacket[0], s_lengthOfPacket[1], s_lengthOfPacket[2], s_lengthOfPacket[3], s_numberOfPacketsLeft[0], substr.c_str()); }
+			int8_t i_nOfPacketsLeft = i_nOfPacketsToSend - (i + 1);
+			int32_t i_packetLength = payload.size();
+
+			send(sckt, (char*)&i_packetLength, 4, 0);
+			send(sckt, (char*)&i_nOfPacketsLeft, 1, 0);
+			send(sckt, typeOfData, 1, 0);
+			totalBytesSent += send(sckt, (char*)payload.data(), i_packetLength, 0);
+
+			if (debug) { printf("\nheader: %x %x %x %x nOfPacketsLeft: %d typeOfData: %s\n", ((unsigned char*)&i_packetLength)[0], ((unsigned char*)&i_packetLength)[1], ((char*)&i_packetLength)[2], ((unsigned char*)&i_packetLength)[3], ((unsigned char*)&i_nOfPacketsLeft)[0], typeOfData); }
 		}
 		
 	}

