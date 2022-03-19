@@ -126,6 +126,3 @@ namespace Message {
 	}
 
 }
-namespace Video {
-
-}

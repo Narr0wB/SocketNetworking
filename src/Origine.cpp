@@ -10,6 +10,7 @@
 #include <iostream>
 
 #include "socketfuncs.h"
+#include "videomodules.h"
 
 #pragma comment(lib, "Ws2_32.lib")
 
@@ -20,13 +21,21 @@ int main() {
 	SOCKET sckt = Message::createSocket("127.0.0.1", "8081");
 
 	std::string command;
+	bool readCommand = false;
 	while (1) {
-		std::cout << "AAAAAAAA";
-		std::cin >> command;
-		std::vector<unsigned char> Input(command.begin(), command.end());
-		Message::sendPackets(sckt, Input, "c", true);
-		std::vector<unsigned char> response = Message::recvPackets(sckt, true);
-		printf("%s", response.data());
+		std::getline(cin, command);
+		readCommand = true;
+		
+		if (command.find("video")) {
+			if 
+		}
+		else {
+			std::vector<unsigned char> Input(command.begin(), command.end());
+			Message::sendPackets(sckt, Input, "c", true);
+			std::vector<unsigned char> response = Message::recvPackets(sckt, true);
+			printf("%s\n", response.data());
+		}
+		
 	}
 
 

