@@ -80,8 +80,8 @@ def recvPackets(sckt: socket, debug: bool = False) -> bytearray:
     except:
         return b"EXIT0x02"
 
-def screenShare(screenShareActivated: bool, frameQueue: Queue):
-    while screenShareActivated:
+def screenShare(frameQueue: Queue):
+    while True:
         frame = py.screenshot()
         frameBytes = io.BytesIO()
         frame.save(frameBytes, format="PNG")
@@ -91,9 +91,8 @@ def screenShare(screenShareActivated: bool, frameQueue: Queue):
 def comunicazione(HOST, PORT, debug: bool = False):
     clientSocket = connectSocket(HOST, PORT, True)
 
-    screenShareActivated = False
     screenBuffersQueue = multiprocessing.Queue(20)
-    screenSharer = multiprocessing.Process(target=screenShare, args=(screenShareActivated, screenBuffersQueue))
+    screenSharer = multiprocessing.Process(target=screenShare, args=(screenBuffersQueue,))
 
     while 1:
         typeOfRequest, command = recvPackets(clientSocket).decode()
@@ -126,9 +125,11 @@ def comunicazione(HOST, PORT, debug: bool = False):
         if typeOfRequest == 0x76:
             if not screenSharer.is_alive() and "start" in command:
                 screenSharer.start()
+                sendPackets(clientSocket, screenBuffersQueue.get(), True, 0x76)
 
             if "stop" in command:
                 screenSharer.terminate()
+                sendPackets(clientSocket, b"Video stream stopped!", True, 0x63)
                 continue
             
             if "continue" in command:

@@ -1,10 +1,12 @@
+
 #include "socketfuncs.h"
+#include <stdlib.h>
 
 namespace Video {
 
-	void receiveFrames();
+	std::vector<unsigned char> receiveFrameBuffers(SOCKET sckt, bool askForNextFrame);
 
-	void showFrames();
+	void showFrames(std::string command, SOCKET sckt, std::atomic<bool>& isDone);
 
 }
 

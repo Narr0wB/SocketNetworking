@@ -8,6 +8,7 @@
 #include <iphlpapi.h>
 #include <stdio.h>
 #include <iostream>
+#include <thread>
 
 #include "socketfuncs.h"
 #include "videomodules.h"
@@ -21,21 +22,28 @@ int main() {
 	SOCKET sckt = Message::createSocket("127.0.0.1", "8081");
 
 	std::string command;
-	bool readCommand = false;
+	std::atomic<bool> done(false);
+	std::thread videoShow;
+
 	while (1) {
 		std::getline(cin, command);
-		readCommand = true;
-		
-		if (command.find("video")) {
-			if 
+
+		if (command.find("video") != std::string::npos) {
+			if (command.find("start") != std::string::npos && done) {
+				std::vector<unsigned char> Input(command.begin(), command.end());
+				Message::sendPackets(sckt, Input, "v", true);
+
+				videoShow = std::thread(Video::showFrames, command, sckt, std::ref(done));
+			}
 		}
-		else {
+		else if (done) {
+			videoShow.join();
 			std::vector<unsigned char> Input(command.begin(), command.end());
 			Message::sendPackets(sckt, Input, "c", true);
 			std::vector<unsigned char> response = Message::recvPackets(sckt, true);
 			printf("%s\n", response.data());
 		}
-		
+		command = "";
 	}
 
 

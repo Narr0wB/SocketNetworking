@@ -61,7 +61,7 @@ namespace Message {
 		recv(sckt, (char*)s_nOfPacketsLeft.data(), 1, 0);
 		recv(sckt, (char*)s_typeOfData.data(), 1, 0);
 
-		if (debug) { printf("\nheader %x %x %x %x nOfPacketsLeft %d typeOfData %c\n", s_packetLength[0], s_packetLength[1], s_packetLength[2], s_packetLength[3], s_nOfPacketsLeft[0], s_typeOfData[0]); }
+		if (debug) { printf("\n[RECEIVED] header %x %x %x %x nOfPacketsLeft %d typeOfData %c\n", s_packetLength[0], s_packetLength[1], s_packetLength[2], s_packetLength[3], s_nOfPacketsLeft[0], s_typeOfData[0]); }
 
 		int32_t i_packetLength = 0; int8_t i_nOfPacketsLeft = 0;
 		memcpy(&i_packetLength, s_packetLength.data(), sizeof(i_packetLength));
@@ -78,7 +78,7 @@ namespace Message {
 					recv(sckt, (char*)s_nOfPacketsLeft.data(), 1, 0);
 					recv(sckt, (char*)s_typeOfData.data(), 1, 0);
 
-					if (debug) { printf("\nheader %x %x %x %x nOfPacketsLeft %d typeOfData: %s\n", s_packetLength[0], s_packetLength[1], s_packetLength[2], s_packetLength[3], s_nOfPacketsLeft[0], s_typeOfData.data()); }
+					if (debug) { printf("\n[RECEIVED] header %x %x %x %x nOfPacketsLeft %d typeOfData: %s\n", s_packetLength[0], s_packetLength[1], s_packetLength[2], s_packetLength[3], s_nOfPacketsLeft[0], s_typeOfData.data()); }
 
 					i_packetLength = 0; i_nOfPacketsLeft = 0;
 					memcpy(&i_packetLength, s_packetLength.data(), sizeof(i_packetLength));
@@ -91,6 +91,26 @@ namespace Message {
 					receivedData.insert(receivedData.end(), payload.begin(), payload.end());
 				}
 				receivedData.push_back('\0');
+				break;
+			}
+			default: {
+				while (i_nOfPacketsLeft > 0) {
+					recv(sckt, (char*)s_packetLength.data(), 4, 0);
+					recv(sckt, (char*)s_nOfPacketsLeft.data(), 1, 0);
+					recv(sckt, (char*)s_typeOfData.data(), 1, 0);
+
+					if (debug) { printf("\n[RECEIVED] header %x %x %x %x nOfPacketsLeft %d typeOfData: %s\n", s_packetLength[0], s_packetLength[1], s_packetLength[2], s_packetLength[3], s_nOfPacketsLeft[0], s_typeOfData.data()); }
+
+					i_packetLength = 0; i_nOfPacketsLeft = 0;
+					memcpy(&i_packetLength, s_packetLength.data(), sizeof(i_packetLength));
+					memcpy(&i_nOfPacketsLeft, s_nOfPacketsLeft.data(), sizeof(i_nOfPacketsLeft));
+					i_packetLength = ntohl(i_packetLength);
+
+
+					totalObjectLength += i_packetLength;
+					payload = recvAll(sckt, i_packetLength);
+					receivedData.insert(receivedData.end(), payload.begin(), payload.end());
+				}
 				break;
 			}
 		}
@@ -120,7 +140,7 @@ namespace Message {
 			send(sckt, typeOfData, 1, 0);
 			totalBytesSent += send(sckt, (char*)payload.data(), i_packetLength, 0);
 
-			if (debug) { printf("\nheader: %x %x %x %x nOfPacketsLeft: %d typeOfData: %s\n", ((unsigned char*)&i_packetLength)[0], ((unsigned char*)&i_packetLength)[1], ((char*)&i_packetLength)[2], ((unsigned char*)&i_packetLength)[3], ((unsigned char*)&i_nOfPacketsLeft)[0], typeOfData); }
+			if (debug) { printf("\n[SENT] header: %x %x %x %x nOfPacketsLeft: %d typeOfData: %s\n", ((unsigned char*)&i_packetLength)[0], ((unsigned char*)&i_packetLength)[1], ((char*)&i_packetLength)[2], ((unsigned char*)&i_packetLength)[3], ((unsigned char*)&i_nOfPacketsLeft)[0], typeOfData); }
 		}
 		
 	}
