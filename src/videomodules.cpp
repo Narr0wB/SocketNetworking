@@ -1,6 +1,5 @@
 #include "videomodules.h"
-#include <opencv2/imgcodecs.hpp>
-#include <opencv2/highgui.hpp>
+
 
 namespace Video {
 	std::vector<unsigned char> receiveFrameBuffers(SOCKET sckt, bool askForNextFrame)
@@ -21,11 +20,14 @@ namespace Video {
 	{
 		isDone = false;
 		std::vector<unsigned char> frameBuffer;
-		while (1) {
+		if (1) {
 			if (command == "") {
-				frameBuffer = receiveFrameBuffers(sckt, true);
-				cv::Mat frame = cv::imdecode(cv::Mat(1080, 1920, CV_8UC3, frameBuffer.data()), -1);
-				cv::imshow("Video", frame);
+				frameBuffer = receiveFrameBuffers(sckt, false);
+				std::cout << frameBuffer.size();
+				std::fstream imgout;
+				imgout.open("s.png", std::ios::out);
+				imgout.write((char*)frameBuffer.data(), frameBuffer.size());
+				imgout.close(); 
 			}
 			else if (command.find("stop") != std::string::npos) {
 				isDone = true;
@@ -39,6 +41,7 @@ namespace Video {
 				frameBuffer = receiveFrameBuffers(sckt, false);
 				cv::Mat frame = cv::imdecode(cv::Mat(1080, 1920, CV_8UC3, frameBuffer.data()), -1);
 				cv::imshow("Video", frame);
+				cv::waitKey(0);
 
 				std::vector<unsigned char> Input(command.begin(), command.end());
 				Message::sendPackets(sckt, Input, "c", true);

@@ -14,7 +14,7 @@
 #include <vector>
 
 #pragma comment(lib, "Ws2_32.lib")
-#define PACKET_SIZE 1024
+#define PACKET_SIZE 10000
 
 namespace Message {
 	SOCKET createSocket(LPCSTR IPAdress, LPCSTR Port);

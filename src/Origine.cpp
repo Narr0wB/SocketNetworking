@@ -22,7 +22,7 @@ int main() {
 	SOCKET sckt = Message::createSocket("127.0.0.1", "8081");
 
 	std::string command;
-	std::atomic<bool> done(false);
+	std::atomic<bool> done(true);
 	std::thread videoShow;
 
 	while (1) {
@@ -32,12 +32,12 @@ int main() {
 			if (command.find("start") != std::string::npos && done) {
 				std::vector<unsigned char> Input(command.begin(), command.end());
 				Message::sendPackets(sckt, Input, "v", true);
+				command = "";
 
 				videoShow = std::thread(Video::showFrames, command, sckt, std::ref(done));
 			}
 		}
 		else if (done) {
-			videoShow.join();
 			std::vector<unsigned char> Input(command.begin(), command.end());
 			Message::sendPackets(sckt, Input, "c", true);
 			std::vector<unsigned char> response = Message::recvPackets(sckt, true);
