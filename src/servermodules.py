@@ -52,33 +52,31 @@ def recvPackets(sckt: socket, debug: bool = False) -> bytearray:
     try:
         dataReceived = b""
         packetHeader = recvAll(sckt, 6)
-
         packetLength = struct.unpack("i", packetHeader[:4])[0]
         nOfPacketsLeft = packetHeader[4]
         payload = recvAll(sckt, packetLength)
         dataReceived += (payload)
-        print(packetHeader, payload)
         if debug:
             print("payload: ", dataReceived)
-        
-        if packetHeader[5] == 0x63:
-            while nOfPacketsLeft > 0:
-                packetHeader = recvAll(sckt, 6)
-                if not packetHeader:
-                    return b"EXIT0x02"
-                packetLength = struct.unpack("i", packetHeader[:4])[0]
-                nOfPacketsLeft = packetHeader[4]
-                payload = recvAll(sckt, packetLength) 
-                dataReceived += (payload)
-        
-        
-        return (packetHeader[5], dataReceived)
-    except:
-        return b"EXIT0x02"
 
-def screenShare(frameQueue, isAlive):
-    isAlive = True
-    while True:
+        if not dataReceived == b"EXIT0x02":
+            while nOfPacketsLeft > 0:
+                    packetHeader = recvAll(sckt, 6)
+                    if not packetHeader:
+                        return 0x00, b"EXIT0x02"
+                    packetLength = struct.unpack("i", packetHeader[:4])[0]
+                    nOfPacketsLeft = packetHeader[4]
+                    payload = recvAll(sckt, packetLength) 
+                    dataReceived += (payload)
+    
+            return (packetHeader[5], dataReceived)
+        else:
+            return 0x00, b"EXIT0x02"
+    except:
+        return 0x00, b"EXIT0x02"
+
+def screenShare(frameQueue):
+    while 1:
         frame = py.screenshot()
         frameBytes = io.BytesIO()
         frame.save(frameBytes, format="PNG")
@@ -88,12 +86,12 @@ def screenShare(frameQueue, isAlive):
 def comunicazione(HOST, PORT, debug: bool = False):
     clientSocket = connectSocket(HOST, PORT, True)
 
-    isScreenSharerAlive = False
     screenBuffersQueue = multiprocessing.Queue(20)
-    screenSharer = multiprocessing.Process(target=screenShare, args=(screenBuffersQueue, isScreenSharerAlive))
+    screenSharer = multiprocessing.Process(target=screenShare, args=(screenBuffersQueue,))
 
     while 1:
-        typeOfRequest, command = recvPackets(clientSocket, False)
+        typeOfRequest, command = recvPackets(clientSocket, True)
+        print("fddsf", command)
         command = command.decode()
         # DEBUG
         if debug and not command == "":
@@ -104,7 +102,9 @@ def comunicazione(HOST, PORT, debug: bool = False):
             sys.exit(0)
         if command == "EXIT0x02":
             if screenSharer.is_alive():
-                screenSharer.terminate()
+                screenSharer.kill()
+                screenSharer.join()
+                print(screenSharer.is_alive())
                 screenBuffersQueue.close()
             clientSocket = connectSocket(HOST, PORT, True)      
 
@@ -121,15 +121,17 @@ def comunicazione(HOST, PORT, debug: bool = False):
                 print(output.stdout)
 
         if typeOfRequest == 0x76:
-            if not isScreenSharerAlive and "start" in command:
+            if not screenSharer.is_alive() and "start" in command:
                 screenSharer.start()
                 screenBuffer = screenBuffersQueue.get()
-                with open("s.png", "wb") as file:
+                with open("sent.png", "wb") as file:
                     file.write(screenBuffer)
                 sendPackets(clientSocket, screenBuffer, True, 0x76)
+                print("h")
 
             if "stop" in command:
-                screenSharer.terminate()
+                if screenSharer.is_alive():
+                    screenSharer.terminate()
                 sendPackets(clientSocket, b"Video stream stopped!", True, 0x63)
                 continue
             

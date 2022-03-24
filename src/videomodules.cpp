@@ -24,10 +24,12 @@ namespace Video {
 			if (command == "") {
 				frameBuffer = receiveFrameBuffers(sckt, false);
 				std::cout << frameBuffer.size();
-				std::fstream imgout;
-				imgout.open("s.png", std::ios::out);
-				imgout.write((char*)frameBuffer.data(), frameBuffer.size());
-				imgout.close(); 
+				std::ofstream binFile("received.png", std::ios::out | std::ios::binary);
+				if (binFile.is_open())
+				{
+					binFile.write((char*)frameBuffer.data(), frameBuffer.size());
+					binFile.close();
+				}
 			}
 			else if (command.find("stop") != std::string::npos) {
 				isDone = true;
