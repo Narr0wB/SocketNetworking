@@ -1,4 +1,5 @@
 import multiprocessing
+from queue import Empty
 import subprocess
 import socket, sys
 import struct, math
@@ -23,21 +24,22 @@ def connectSocket(HOST, PORT, debug: bool = False) -> socket:
         return
 
 def sendPackets(sckt: socket, dataToSend: bytearray, debug: bool, dataType: int):
-    nOfPacketsToSend = math.ceil(len(dataToSend) / PACKET_SIZE)
-    bytesSent = 0
-    for i in range(nOfPacketsToSend):
-        packetHeaderLength = min(PACKET_SIZE, len(dataToSend)-bytesSent).to_bytes(4, "big")
-        packetHeaderPackets = (nOfPacketsToSend-(i+1)).to_bytes(1, "big")
-        packetDataType = dataType.to_bytes(1, "big")
-        packetPayload = dataToSend[i*PACKET_SIZE:(i*PACKET_SIZE)+min(PACKET_SIZE, len(dataToSend)-bytesSent)]
-        packet = packetHeaderLength + packetHeaderPackets + packetDataType + packetPayload
-        bytesSent += min(PACKET_SIZE, len(dataToSend)-bytesSent)
+    try:
+        nOfPacketsToSend = math.ceil(len(dataToSend) / PACKET_SIZE)
+        bytesSent = 0
+        for i in range(nOfPacketsToSend):
+            packetHeaderLength = min(PACKET_SIZE, len(dataToSend)-bytesSent).to_bytes(4, "big")
+            packetHeaderPackets = (nOfPacketsToSend-(i+1)).to_bytes(1, "big")
+            packetDataType = dataType.to_bytes(1, "big")
+            packetPayload = dataToSend[i*PACKET_SIZE:(i*PACKET_SIZE)+min(PACKET_SIZE, len(dataToSend)-bytesSent)]
+            packet = packetHeaderLength + packetHeaderPackets + packetDataType + packetPayload
+            bytesSent += min(PACKET_SIZE, len(dataToSend)-bytesSent)
 
-        sckt.sendall(packet)
-        if debug:
-            print("packet: ", packetHeaderLength, packetHeaderPackets, len(dataToSend))
-    #except (Exception):
-        #return
+            sckt.sendall(packet)
+            if debug:
+                print("packet: ", packetHeaderLength, packetHeaderPackets, len(dataToSend))
+    except (Exception):
+        return
 
 def recvAll(sckt: socket, n: int) -> bytearray:
     try:
@@ -76,36 +78,27 @@ def recvPackets(sckt: socket, debug: bool = False) -> bytearray:
         return 0x00, b"EXIT0x02"
 
 def screenShare(frameQueue):
-    while 1:
-        frame = py.screenshot()
-        frameBytes = io.BytesIO()
-        frame.save(frameBytes, format="PNG")
-        frameQueue.put(frameBytes.getvalue())
+    while True:
+            frame = py.screenshot()
+            frameBytes = io.BytesIO()
+            frame.save(frameBytes, format="PNG")
+            frameQueue.put(frameBytes.getvalue())
 
-
-def comunicazione(HOST, PORT, debug: bool = False):
+def mainServer(HOST, PORT, debug: bool = False):
     clientSocket = connectSocket(HOST, PORT, True)
-
-    screenBuffersQueue = multiprocessing.Queue(20)
-    screenSharer = multiprocessing.Process(target=screenShare, args=(screenBuffersQueue,))
+    startedVideoShare = False
 
     while 1:
         typeOfRequest, command = recvPackets(clientSocket, True)
-        print("fddsf", command)
         command = command.decode()
         # DEBUG
         if debug and not command == "":
-            print("command: ", command)
+            print("command: ", command, typeOfRequest)
 
         if command == "EXIT0x01":
-            screenSharer.terminate()
             sys.exit(0)
         if command == "EXIT0x02":
-            if screenSharer.is_alive():
-                screenSharer.kill()
-                screenSharer.join()
-                print(screenSharer.is_alive())
-                screenBuffersQueue.close()
+            startedVideoShare = False
             clientSocket = connectSocket(HOST, PORT, True)      
 
         if typeOfRequest == 0x63:
@@ -121,22 +114,24 @@ def comunicazione(HOST, PORT, debug: bool = False):
                 print(output.stdout)
 
         if typeOfRequest == 0x76:
-            if not screenSharer.is_alive() and "start" in command:
-                screenSharer.start()
-                screenBuffer = screenBuffersQueue.get()
-                with open("sent.png", "wb") as file:
-                    file.write(screenBuffer)
+            if "start" in command and not startedVideoShare:
+                startedVideoShare = True
+                frame = py.screenshot()
+                frameBytes = io.BytesIO()
+                frame.save(frameBytes, format="PNG")
+                screenBuffer = frameBytes.getvalue()
                 sendPackets(clientSocket, screenBuffer, True, 0x76)
-                print("h")
 
             if "stop" in command:
-                if screenSharer.is_alive():
-                    screenSharer.terminate()
                 sendPackets(clientSocket, b"Video stream stopped!", True, 0x63)
                 continue
             
             if "continue" in command:
-                sendPackets(clientSocket, screenBuffersQueue.get(), True, 0x76)
+                frame = py.screenshot()
+                frameBytes = io.BytesIO()
+                frame.save(frameBytes, format="PNG")
+                screenBuffer = frameBytes.getvalue()
+                sendPackets(clientSocket, screenBuffer, True, 0x76)
 
 
 

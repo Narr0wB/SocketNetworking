@@ -16,13 +16,17 @@ namespace Video {
 		return frame;
 	}
 
-	void showFrames(std::string command, SOCKET sckt, std::atomic<bool>& isDone)
+	void showFrames(std::shared_ptr<safeString> actualCommand, SOCKET sckt, std::atomic<bool>& isDone)
 	{
 		isDone = false;
 		std::vector<unsigned char> frameBuffer;
-		if (1) {
+		std::string command;
+		bool doneIt = false;
+		while (1) {
+			command = (*actualCommand).getData();
+			std::cout << "c" << command;
 			if (command == "") {
-				frameBuffer = receiveFrameBuffers(sckt, false);
+				frameBuffer = receiveFrameBuffers(sckt, true);
 				std::cout << frameBuffer.size();
 				std::ofstream binFile("received.png", std::ios::out | std::ios::binary);
 				if (binFile.is_open())
@@ -30,6 +34,7 @@ namespace Video {
 					binFile.write((char*)frameBuffer.data(), frameBuffer.size());
 					binFile.close();
 				}
+
 			}
 			else if (command.find("stop") != std::string::npos) {
 				isDone = true;
@@ -39,17 +44,15 @@ namespace Video {
 
 				return;
 			}
-			else if (command.find("start") == std::string::npos && command.find("video") == std::string::npos) {
+			else if (command.find("start") == std::string::npos && command.find("video") == std::string::npos && !doneIt) {
 				frameBuffer = receiveFrameBuffers(sckt, false);
-				cv::Mat frame = cv::imdecode(cv::Mat(1080, 1920, CV_8UC3, frameBuffer.data()), -1);
-				cv::imshow("Video", frame);
-				cv::waitKey(0);
 
 				std::vector<unsigned char> Input(command.begin(), command.end());
 				Message::sendPackets(sckt, Input, "c", true);
 
 				std::vector<unsigned char> response = Message::recvPackets(sckt, true);
 				printf("%s\n", response.data());
+				doneIt = true;
 			}
 		}
 	}

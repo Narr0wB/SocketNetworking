@@ -22,19 +22,19 @@ int main() {
 	SOCKET sckt = Message::createSocket("127.0.0.1", "8081");
 
 	std::string command;
+	std::shared_ptr<safeString> actualCommand = std::make_shared<safeString>();
 	std::atomic<bool> done(true);
 	std::thread videoShow;
 
 	while (1) {
 		std::getline(cin, command);
-
+		(*actualCommand).setData(command);
 		if (command.find("video") != std::string::npos) {
 			if (command.find("start") != std::string::npos && done) {
 				std::vector<unsigned char> Input(command.begin(), command.end());
 				Message::sendPackets(sckt, Input, "v", true);
-				command = "";
-
-				videoShow = std::thread(Video::showFrames, command, sckt, std::ref(done));
+				(*actualCommand).setData("");
+				videoShow = std::thread(Video::showFrames, actualCommand, sckt, std::ref(done));
 			}
 		}
 		else if (done) {
@@ -43,7 +43,6 @@ int main() {
 			std::vector<unsigned char> response = Message::recvPackets(sckt, true);
 			printf("%s\n", response.data());
 		}
-		command = "";
 	}
 
 
