@@ -15,7 +15,13 @@
 
 #pragma comment(lib, "Ws2_32.lib")
 
-using namespace std;
+void getCommand(std::shared_ptr<safeString> sharedCommand) {
+	std::string command;
+	while (1) {
+		std::getline(std::cin, command);
+		(*sharedCommand).setData(command);
+	}
+}
 
 int main() {
 	
@@ -23,26 +29,64 @@ int main() {
 
 	std::string command;
 	std::shared_ptr<safeString> actualCommand = std::make_shared<safeString>();
-	std::atomic<bool> done(true);
-	std::thread videoShow;
+	std::thread getCommandThread = std::thread(getCommand, actualCommand);
+	bool isReceivingVideo = false;
 
 	while (1) {
-		std::getline(cin, command);
-		(*actualCommand).setData(command);
-		if (command.find("video") != std::string::npos) {
-			if (command.find("start") != std::string::npos && done) {
-				std::vector<unsigned char> Input(command.begin(), command.end());
-				Message::sendPackets(sckt, Input, "v", true);
-				(*actualCommand).setData("");
-				videoShow = std::thread(Video::showFrames, actualCommand, sckt, std::ref(done));
+		command = (*actualCommand).getData();
+		if (command.find("video") != std::string::npos && command.find("start") != std::string::npos) {
+			std::vector<unsigned char> startVideoCommand(command.begin(), command.end());
+			Message::sendPackets(sckt, startVideoCommand, "v", false);
+
+			isReceivingVideo = true;
+			Video::showFrames(sckt, true);
+		}
+		else if (command.find("video") == std::string::npos && command.find("start") == std::string::npos && command != "") {
+			std::cout << "here 2";
+			if (isReceivingVideo) {
+				Video::showFrames(sckt, false);
 			}
+
+			std::vector<unsigned char> inputCommand(command.begin(), command.end());
+			Message::sendPackets(sckt, inputCommand, "c", true);
+
+			auto response = Message::recvPackets(sckt, true);
+			std::cout << response.data();
+
+			if (isReceivingVideo) {
+				command = "video start";
+				(*actualCommand).setData(command);
+			}
+			else {
+				command = "";
+				(*actualCommand).setData(command);
+			}
+
 		}
-		else if (done) {
-			std::vector<unsigned char> Input(command.begin(), command.end());
-			Message::sendPackets(sckt, Input, "c", true);
-			std::vector<unsigned char> response = Message::recvPackets(sckt, true);
-			printf("%s\n", response.data());
+		else if (command.find("video") != std::string::npos && command.find("stop") != std::string::npos) {
+			if (isReceivingVideo) {
+				Video::showFrames(sckt, false);
+
+				std::vector<unsigned char> inputCommand(command.begin(), command.end());
+				Message::sendPackets(sckt, inputCommand, "v", true);
+
+				auto response = Message::recvPackets(sckt, true);
+				std::cout << response.data() << std::endl;
+
+				isReceivingVideo = false;
+
+				command = "";
+				(*actualCommand).setData(command);
+			}
+			else {
+				std::cout << "[ERROR] The video stream has not started yet!" << std::endl;
+
+				command = "";
+				(*actualCommand).setData(command);
+			}
+
 		}
+
 	}
 
 

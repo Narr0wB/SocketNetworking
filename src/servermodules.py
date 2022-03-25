@@ -123,6 +123,7 @@ def mainServer(HOST, PORT, debug: bool = False):
                 sendPackets(clientSocket, screenBuffer, True, 0x76)
 
             if "stop" in command:
+                startedVideoShare = False
                 sendPackets(clientSocket, b"Video stream stopped!", True, 0x63)
                 continue
             

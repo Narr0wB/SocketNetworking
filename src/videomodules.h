@@ -1,9 +1,10 @@
 
 #include "socketfuncs.h"
-#include <opencv2/imgcodecs.hpp>
-#include <opencv2/highgui.hpp>
+//#include <opencv2/imgcodecs.hpp>
+//#include <opencv2/highgui.hpp>
 #include <stdlib.h>
 #include <fstream>
+#include <mutex>
 
 class safeString {
 private:
@@ -28,7 +29,7 @@ namespace Video {
 
 	std::vector<unsigned char> receiveFrameBuffers(SOCKET sckt, bool askForNextFrame);
 
-	void showFrames(std::shared_ptr<safeString> actualCommand, SOCKET sckt, std::atomic<bool>& isDone);
+	void showFrames(SOCKET sckt, bool askForNextFrame);
 
 }
 
