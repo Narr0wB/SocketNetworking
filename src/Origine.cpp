@@ -25,7 +25,7 @@ void getCommand(std::shared_ptr<safeString> sharedCommand) {
 
 int main() {
 	
-	SOCKET sckt = Message::createSocket("127.0.0.1", "8081");
+	SOCKET sckt = Message::createSocket("127.0.0.1", "8081", true, true);
 
 	std::string command;
 	std::shared_ptr<safeString> actualCommand = std::make_shared<safeString>();

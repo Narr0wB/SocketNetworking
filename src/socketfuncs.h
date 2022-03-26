@@ -17,13 +17,13 @@
 #define PACKET_SIZE 10000
 
 namespace Message {
-	SOCKET createSocket(LPCSTR IPAdress, LPCSTR Port);
+	SOCKET createSocket(LPCSTR IPAdress, LPCSTR Port, bool makingClient, bool debug);
 
 	std::vector<unsigned char> recvAll(SOCKET sckt,unsigned int nOfBytesToRecv);
 
 	std::vector<unsigned char> recvPackets(SOCKET sckt, bool debug);
 
-	void sendPackets(SOCKET sckt, std::vector<unsigned char> dataToSend, const char* typeOfData, bool debug);
+	void sendPackets(SOCKET sckt, std::vector<unsigned char> dataToSend, const char* typeOfRequest, bool debug);
 }
 
 
