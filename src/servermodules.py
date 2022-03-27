@@ -2,7 +2,9 @@ import subprocess
 import socket, sys
 import struct, math
 import pyautogui as py
-import socket, io
+import socket 
+import io
+import wexpect
 
 PACKET_SIZE = 10000
 
@@ -137,7 +139,7 @@ def mainServer(HOST, PORT, debug: bool = False):
                 frameBytes = io.BytesIO()
                 frame.save(frameBytes, format="PNG") # Convert it to a png file
                 screenBuffer = frameBytes.getvalue()
-                sendPackets(clientSocket, screenBuffer, 0x76, True) # Send the data through the network
+                sendPackets(clientSocket, screenBuffer, 0x76, False) # Send the data through the network
 
             # If the video request if a video stop request
             if "stop" in command:
@@ -151,7 +153,7 @@ def mainServer(HOST, PORT, debug: bool = False):
                 frameBytes = io.BytesIO()
                 frame.save(frameBytes, format="PNG")
                 screenBuffer = frameBytes.getvalue()
-                sendPackets(clientSocket, screenBuffer, 0x76, True)
+                sendPackets(clientSocket, screenBuffer, 0x76, False)
 
 
 

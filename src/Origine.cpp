@@ -35,18 +35,20 @@ int main() {
 	while (1) {
 		command = (*actualCommand).getData();
 		if (command.find("video") != std::string::npos && command.find("start") != std::string::npos) {
-			std::vector<unsigned char> startVideoCommand(command.begin(), command.end());
-			Message::sendPackets(sckt, startVideoCommand, "v", false);
+			if (!isReceivingVideo) 
+			{
+				std::vector<unsigned char> startVideoCommand(command.begin(), command.end());
+				Message::sendPackets(sckt, startVideoCommand, "v", false);
+			}
 
 			isReceivingVideo = true;
 			Video::showFrames(sckt, true);
 		}
 		else if (command.find("video") == std::string::npos && command.find("start") == std::string::npos && command != "") {
-			std::cout << "here 2";
 			if (isReceivingVideo) {
 				Video::showFrames(sckt, false);
 			}
-
+			std::cout << command;
 			std::vector<unsigned char> inputCommand(command.begin(), command.end());
 			Message::sendPackets(sckt, inputCommand, "c", true);
 
