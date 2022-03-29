@@ -44,11 +44,53 @@ int main() {
 			isReceivingVideo = true;
 			Video::showFrames(sckt, true);
 		}
+		else if (command.find("getfile") != std::string::npos) {
+			if (isReceivingVideo) {
+				Video::showFrames(sckt, false);
+			}
+			if (command.length() == 8 || command.length() == 7) {
+				std::cout << "Syntax: getfile 'filename.extension'" << std::endl;
+				command = "";
+				(*actualCommand).setData(command);
+				continue;
+			}
+			std::vector<unsigned char> inputCommand(command.begin(), command.end());
+			Message::sendPackets(sckt, inputCommand, "f", true);
+
+			auto fileData = Message::recvPackets(sckt, true);
+			if (fileData[0] == 0x45 && fileData[1] == 0x45) {
+				fileData.erase(fileData.begin());
+				fileData.erase(fileData.begin());
+				std::cout << fileData.data();
+
+			}
+			else {
+				auto fileName = Message::recvPackets(sckt, true);
+
+				std::string fileNameStr(fileName.begin(), fileName.end());
+				std::ofstream binFile(fileNameStr, std::ios::out | std::ios::binary);
+				if (binFile.is_open())
+				{
+					binFile.write((char*)fileData.data(), fileData.size());
+					binFile.close();
+				}
+
+			}
+
+			if (isReceivingVideo) {
+				command = "video start";
+				(*actualCommand).setData(command);
+			}
+			else {
+				command = "";
+				(*actualCommand).setData(command);
+			}
+		}
 		else if (command.find("video") == std::string::npos && command.find("start") == std::string::npos && command != "") {
 			if (isReceivingVideo) {
 				Video::showFrames(sckt, false);
 			}
-			std::cout << command;
+			
 			std::vector<unsigned char> inputCommand(command.begin(), command.end());
 			Message::sendPackets(sckt, inputCommand, "c", true);
 

@@ -1,3 +1,4 @@
+import os
 import subprocess
 import socket, sys
 import struct, math
@@ -5,6 +6,7 @@ import pyautogui as py
 import socket 
 import io
 import re
+import pathlib
 
 PACKET_SIZE = 10000
 
@@ -97,10 +99,10 @@ def getCurrentDirectory() -> str:
     currentDir = (output.stdout[:len(output.stdout)-2]).decode()
     return currentDir
 
-def checkIfAvailableDirectory(currentDir, cmd) -> bool:
+def checkIfAvailableInDirectory(currentDir: str, cmd: str, offset: int) -> bool:
     command = "dir" + " " + '"' + currentDir + '"'
     output = subprocess.getoutput(command)
-    if output.find(cmd[3:]) != -1:
+    if output.find(cmd[offset:]) != -1:
         return True
     else:
         return False 
@@ -117,7 +119,10 @@ def mainServer(HOST, PORT, debug: bool = False):
 
     while True:
         typeOfRequest, command = recvPackets(clientSocket, True)
-        command: str = command.decode()
+        try:
+            command: str = command.decode()
+        except:
+            command = "EXIT0x02"
         # DEBUG
         if debug and not command == "":
             print("[DEBUG] Command: ", command, " typeOfRequest: ", typeOfRequest)
@@ -134,10 +139,10 @@ def mainServer(HOST, PORT, debug: bool = False):
 
             # Getting current directory
             if command == "dir":
-                command = command + " " + '"' + currentDirectory + '"'
+                command = command + " " + '"' + currentDirectory + '\\"'
             if command == "cd ..":
                 currentDirectory = currentDirectory[:currentDirectory.rfind('\\')]
-            if command.find("cd .") == -1 and command.find("cd") != -1 and not re.match("[A-Z]:", command[3:]) and checkIfAvailableDirectory(currentDirectory, command):
+            if command.find("cd .") == -1 and command.find("cd") != -1 and not re.match("[A-Z]:", command[3:]) and checkIfAvailableInDirectory(currentDirectory, command, 3):
                 currentDirectory = currentDirectory + "\\" + command[3:]
             if re.match("[A-Z]:", command):
                 currentDirectory = command
@@ -146,10 +151,10 @@ def mainServer(HOST, PORT, debug: bool = False):
             
             # If the commmand has no output
             if output.stdout == b"":
-                sendPackets(clientSocket, currentDirectory.encode() + ">".encode(), 99, True)
+                sendPackets(clientSocket, currentDirectory.encode() + b">", 99, True)
             else:
-                print(output.stdout)
-                finalOutput = output.stdout + "\n".encode() + currentDirectory.encode() + ">".encode()
+                print(command)
+                finalOutput = output.stdout + "\n".encode() + currentDirectory.encode() + b">"
                 sendPackets(clientSocket, finalOutput, 99, True)
 
             # DEBUG
@@ -181,6 +186,21 @@ def mainServer(HOST, PORT, debug: bool = False):
                 frame.save(frameBytes, format="PNG")
                 screenBuffer = frameBytes.getvalue()
                 sendPackets(clientSocket, screenBuffer, 0x76, False)
+        
+        if typeOfRequest == 0x66:
+            if "getfile" in command:
+                filePath = currentDirectory + "\\" + command[8:]
+                fileName = command[8:]
+                if checkIfAvailableInDirectory(currentDirectory, fileName, 0):
+                    if os.path.getsize(filePath) < 2000000000:
+                        with open(filePath, "rb") as reader:
+                            fileData = reader.read()
+                            sendPackets(clientSocket, fileData, 0x66, True)
+                            sendPackets(clientSocket, fileName.encode(), 0x66, True)
+                else:
+                    errorMessage = b"EE" + b"No file with name " + fileName.encode() + b" in " + currentDirectory.encode() + b"\n" + currentDirectory.encode() + b">"
+                    sendPackets(clientSocket, errorMessage, 0x63, True)
+                     
 
 
 
