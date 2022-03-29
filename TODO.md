@@ -2,8 +2,9 @@
 Medusa is a C++ / Python TCP socket application designed to test my knowledge of the languages
 
 ## Uncompleted tasks
-- [ ] Deprecate the call to subprocess.run ~1d #optimization @Narr0wB 27-03-2022  
-  - Description: Deprecate the call to subprocess.run in the python side of the code in favour of a child cmd process   
+- [x] Deprecate the call to subprocess.run ~1d #optimization @Narr0wB 27-03-2022  
+  - Description: Deprecate the call to subprocess.run in the python side of the code in favour of a child cmd process
+  - Solution: Kept the call to subprocess.run and added a currentDirectory system to the python side of code  
 
 - [ ] Add support for file tranfer ~3d/5d #functionality @Narr0w 27-03-2022
   - Description: If it was found a way to spawn a cmd process, add support for moderate size file transfer (1-2GB max)
