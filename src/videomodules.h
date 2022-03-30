@@ -27,9 +27,9 @@ public:
 
 namespace Video {
 
-	std::vector<unsigned char> receiveFrameBuffers(SOCKET sckt, bool askForNextFrame, bool debug);
+	std::vector<unsigned char> receiveFrameBuffers(const SOCKET& sckt, bool askForNextFrame, bool debug);
 
-	void showFrames(SOCKET sckt, bool askForNextFrame);
+	void showFrames(const SOCKET& sckt, bool askForNextFrame, bool debug);
 
 }
 

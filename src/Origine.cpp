@@ -12,6 +12,7 @@
 
 #include "socketfuncs.h"
 #include "videomodules.h"
+#include "filemodules.h"
 
 #pragma comment(lib, "Ws2_32.lib")
 
@@ -32,50 +33,24 @@ int main() {
 	std::thread getCommandThread = std::thread(getCommand, actualCommand);
 	bool isReceivingVideo = false;
 
-	while (1) {
+	while (true) {
 		command = (*actualCommand).getData();
 		if (command.find("video") != std::string::npos && command.find("start") != std::string::npos) {
 			if (!isReceivingVideo) 
 			{
 				std::vector<unsigned char> startVideoCommand(command.begin(), command.end());
-				Message::sendPackets(sckt, startVideoCommand, "v", false);
+				Message::sendMsg(sckt, startVideoCommand, "v", false);
 			}
 
 			isReceivingVideo = true;
-			Video::showFrames(sckt, true);
+			Video::showFrames(sckt, true, true);
 		}
 		else if (command.find("getfile") != std::string::npos) {
 			if (isReceivingVideo) {
-				Video::showFrames(sckt, false);
+				Video::showFrames(sckt, false, true);
 			}
-			if (command.length() == 8 || command.length() == 7) {
-				std::cout << "Syntax: getfile 'filename.extension'" << std::endl;
-				command = "";
-				(*actualCommand).setData(command);
-				continue;
-			}
-			std::vector<unsigned char> inputCommand(command.begin(), command.end());
-			Message::sendPackets(sckt, inputCommand, "f", true);
-
-			auto fileData = Message::recvPackets(sckt, true);
-			if (fileData[0] == 0x45 && fileData[1] == 0x45) {
-				fileData.erase(fileData.begin());
-				fileData.erase(fileData.begin());
-				std::cout << fileData.data();
-
-			}
-			else {
-				auto fileName = Message::recvPackets(sckt, true);
-
-				std::string fileNameStr(fileName.begin(), fileName.end());
-				std::ofstream binFile(fileNameStr, std::ios::out | std::ios::binary);
-				if (binFile.is_open())
-				{
-					binFile.write((char*)fileData.data(), fileData.size());
-					binFile.close();
-				}
-
-			}
+			
+			File::getFile(sckt, command, true);
 
 			if (isReceivingVideo) {
 				command = "video start";
@@ -88,13 +63,13 @@ int main() {
 		}
 		else if (command.find("video") == std::string::npos && command.find("start") == std::string::npos && command != "") {
 			if (isReceivingVideo) {
-				Video::showFrames(sckt, false);
+				Video::showFrames(sckt, false, true);
 			}
 			
 			std::vector<unsigned char> inputCommand(command.begin(), command.end());
-			Message::sendPackets(sckt, inputCommand, "c", true);
+			Message::sendMsg(sckt, inputCommand, "c", true);
 
-			auto response = Message::recvPackets(sckt, true);
+			auto response = Message::recvMsg(sckt, true);
 			std::cout << response.data();
 
 			if (isReceivingVideo) {
@@ -109,12 +84,12 @@ int main() {
 		}
 		else if (command.find("video") != std::string::npos && command.find("stop") != std::string::npos) {
 			if (isReceivingVideo) {
-				Video::showFrames(sckt, false);
+				Video::showFrames(sckt, false, true);
 
 				std::vector<unsigned char> inputCommand(command.begin(), command.end());
-				Message::sendPackets(sckt, inputCommand, "v", true);
+				Message::sendMsg(sckt, inputCommand, "v", true);
 
-				auto response = Message::recvPackets(sckt, true);
+				auto response = Message::recvMsg(sckt, true);
 				std::cout << response.data() << std::endl;
 
 				isReceivingVideo = false;
