@@ -7,7 +7,7 @@ Medusa is a C++ / Python TCP socket application designed to test my knowledge of
   - Solution: Kept the call to subprocess.run and added a currentDirectory system to the python side of code  
 
 - [ ] Add support for file tranfer ~3d/5d #functionality @Narr0w 27-03-2022 - In progress...
-  - Description: If it was found a way to spawn a cmd process, add support for moderate size file transfer (1-2GB max)
+  - Description: If point 1 was completed, add support for moderate size file transfer (1-2GB max)
 
 - [ ] Implement a gui library for the client ~7d/14d #design @Narr0wB 27-03-2022
   - Description: Implement a gui in the client code so that it could show the video feedback it receives (ImGui libraries or others..)
