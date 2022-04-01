@@ -1,11 +1,13 @@
 #include "socketfuncs.h"
 
-namespace Message {
+namespace Message 
+{
 
 	SOCKET createSocket(LPCSTR IPAdress, LPCSTR Port, bool makingClient, bool debug)
 	{
 		// If the function is making a client, it will proceed to do so, else it will proceed to make a server socket
-		if (makingClient) {
+		if (makingClient) 
+		{
 			int Result = 0;
 			WSADATA wsaData;
 
@@ -22,7 +24,8 @@ namespace Message {
 			if (Result && debug) { std::cout << "[DEBUG] Error 0x02" << std::endl; WSACleanup(); return 1; }
 
 			SOCKET sckt = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
-			if (sckt == INVALID_SOCKET && debug) {
+			if (sckt == INVALID_SOCKET && debug) 
+			{
 				std::cout << "[DEBUG] Error at socket(): " << WSAGetLastError() << std::endl;
 				freeaddrinfo(result);
 				WSACleanup();
@@ -34,14 +37,16 @@ namespace Message {
 			if (sckt == INVALID_SOCKET && debug) { std::cout << "[DEBUG] Connection timed out" << std::endl; WSACleanup(); return 1; }
 			return sckt;
 		}
-		else {
+		else 
+		{
 			WSADATA wsData;
 			
 			int Result = WSAStartup(MAKEWORD(2, 2), &wsData);
 			if (!Result && debug) { std::cout << "\n[DEBUG] Error " << std::hex << Result << std::endl; return 1; }
 
 			SOCKET listenerSocket = socket(AF_INET, SOCK_STREAM, 0);
-			if (listenerSocket == INVALID_SOCKET && debug) {
+			if (listenerSocket == INVALID_SOCKET && debug) 
+			{
 				std::cout << "[DEBUG] Error at socket(): " << WSAGetLastError() << std::endl;
 				WSACleanup();
 				return 1;
@@ -66,10 +71,12 @@ namespace Message {
 			ZeroMemory(host, NI_MAXHOST);
 			ZeroMemory(port, NI_MAXSERV);
 
-			if (getnameinfo((sockaddr*)&client, sizeof(client), host, NI_MAXHOST, port, NI_MAXSERV, 0) == 0 && debug) {
+			if (getnameinfo((sockaddr*)&client, sizeof(client), host, NI_MAXHOST, port, NI_MAXSERV, 0) == 0 && debug) 
+			{
 				std::cout << "[+] Host: " << host << " connected on port " << port << std::endl;
 			}
-			else {
+			else 
+			{
 				std::cout << "[+] Host: " << host << " connected on port " << ntohs(client.sin_port) << std::endl;
 			}
 
@@ -88,7 +95,8 @@ namespace Message {
 		int receivedBytes = recv(sckt, (char*)payload.data(), nOfBytesToRecv, 0);
 
 		// Check for lost bytes, if some lost bytes are found, they will be appended to the end of the payload
-		while (!receivedBytes == nOfBytesToRecv) {
+		while (!receivedBytes == nOfBytesToRecv) 
+		{
 			std::vector<unsigned char> bytesLeft;  
 			recv(sckt, (char*)bytesLeft.data(), (nOfBytesToRecv - receivedBytes), 0);
 			payload.insert(payload.end(), bytesLeft.begin(), bytesLeft.end());
@@ -127,7 +135,8 @@ namespace Message {
 		receivedData.insert(receivedData.end(), payload.begin(), payload.end());
 
 		// If there are more packets left, keep receiving the data and reconstruct the original message
-		while (i_nOfPacketsLeft > 0) {
+		while (i_nOfPacketsLeft > 0) 
+		{
 			s_packetLength = recvAll(sckt, 4);
 			s_nOfPacketsLeft = recvAll(sckt, 2);
 			s_typeOfRequest = recvAll(sckt, 1);
@@ -146,7 +155,8 @@ namespace Message {
 		}
 		
 		// Look at the type of request we are receiving, if it is 99 (0x63 or ASCII for "c") it means we are receiving string data so we need to push a null byte at the end of the message
-		switch (s_typeOfRequest[0]) {
+		switch (s_typeOfRequest[0]) 
+		{
 			case 99: {
 				receivedData.push_back('\0');
 				break;
@@ -166,7 +176,8 @@ namespace Message {
 
 
 		// Loop through the packets
-		for (short i = 0; i < i_nOfPacketsToSend; i++) {
+		for (short i = 0; i < i_nOfPacketsToSend; i++) 
+		{
 
 			// Divide the data to send into n packets of PACKET_SIZE size
 			std::vector<unsigned char>::const_iterator startIndex = (dataToSend.begin() + (i * (long)PACKET_SIZE));

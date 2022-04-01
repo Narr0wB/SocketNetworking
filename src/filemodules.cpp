@@ -1,111 +1,150 @@
 #include "filemodules.h"
 
-bool File::checkIfValidPath(std::string dir)
-{	
-	std::ifstream checkIfValidDirectory(dir);
-	if (dir.length()<2) {
+
+std::string File::getCurrentDir(const SOCKET& sckt)
+{
+	auto currentDirectory = Message::recvMsg(sckt, false);
+	return std::string(currentDirectory.begin(), currentDirectory.end());
+}
+
+// Check for the correct syntax of the get command
+bool File::correctGetCommandSyntax(std::string command)
+{
+	// Since a savePath is necessary, im looking for a colon as it means generally a complete path
+	size_t lastColon = command.find_last_of(":");
+
+	// If there is no savePath
+	if (lastColon == std::string::npos)
+	{
+		std::cout << "SYNTAX: " << std::endl
+			<< "  getfile [filename | filepath] [savepath]" << std::endl << std::endl;
 		return false;
 	}
-	else if (!checkIfValidDirectory) {
+	// If the command is too short
+	if (command.length() == 8 || command.length() == 7) 
+	{
+		std::cout << "SYNTAX: " << std::endl
+			<< "  getfile [filename | filepath] [savepath]" << std::endl << std::endl;
+		return false;
+	}
+	// If there isnt a filename or filepath
+	if (command.find(".") == std::string::npos) 
+	{
+		std::cout << "SYNTAX: " << std::endl
+			<< "  getfile [filename | filepath] [savepath]" << std::endl << std::endl;
 		return false;
 	}
 	return true;
 }
 
-bool File::correctGetCommandSyntax(std::string command)
+// command: sendfile [options] [filepath] [filedestinationpath]
+// options: 
+//		-s: to add a usual file destination (for the session)
+bool File::correctSendCommandSyntax(std::string command)
 {
-	if (command.length() == 8 || command.length() == 7) {
+	size_t lastColon = command.find_last_of(":");
+	size_t firstColon = command.find_first_of(":");
+	if (firstColon == lastColon) 
+	{
 		std::cout << "SYNTAX: " << std::endl
-			<< "  getfile [-options] [filename] [savedir]" << std::endl << std::endl
+			<< "  sendfile [options] [filepath] [filedestinationpath]" << std::endl << std::endl
 			<< "  Options:" << std::endl
-			<< "     -s: add a directory where the file will be put" << std::endl
-			<< "     -p: add a persistent directory where all the files will be put in" << std::endl;
+			<< "     -s: to add a usual file destination (for the session)" << std::endl;
 		return false;
 	}
-	else if ((const char*)command.at(8) == "-") {
-		auto lastSpace = command.find_last_of(" ", 0);
-		if ((const char*)command.at(9) != "s" || (const char*)command.at(9) != "p") {
-			std::cout << "SYNTAX: " << std::endl
-				<< "  getfile [-options] [filename] [savedir]" << std::endl << std::endl
-				<< "  Options:" << std::endl
-				<< "     -s: add a directory where the file will be put" << std::endl
-				<< "     -p: add a persistent directory where all the files will be put in" << std::endl;
-			return false;
-		}
-		else if (!checkIfValidPath(command.substr(lastSpace, command.length() - lastSpace + 1))) {
-			std::cout << "SYNTAX: " << std::endl
-				<< "  getfile [-options] [filename] [savedir]" << std::endl << std::endl
-				<< "  Options:" << std::endl
-				<< "     -s: add a directory where the file will be put" << std::endl
-				<< "     -p: add a persistent directory where all the files will be put in" << std::endl;
-				return false;
-		}
-	}
-	else if (command.find(".") == std::string::npos) {
+	if (command.length() == 8 || command.length() == 9) 
+	{
 		std::cout << "SYNTAX: " << std::endl
-			<< "  getfile [-options] [filename] [savedir]" << std::endl << std::endl
+			<< "  sendfile [options] [filepath] [filedestinationpath]" << std::endl << std::endl
 			<< "  Options:" << std::endl
-			<< "     -s: add a directory where the file will be put" << std::endl
-			<< "     -p: add a persistent directory where all the files will be put in" << std::endl;
+			<< "     -s: to add a usual file destination (for the session)" << std::endl;
 		return false;
 	}
-
+	if (command.find(".") == std::string::npos) 
+	{
+		std::cout << "SYNTAX: " << std::endl
+			<< "  sendfile [options] [filepath] [filedestinationpath]" << std::endl << std::endl
+			<< "  Options:" << std::endl
+			<< "     -s: to add a usual file destination (for the session)" << std::endl;
+		return false;
+	}
+	if (command.at(9) == 0x20 && command.at(10) != 0x73) 
+	{
+		std::cout << "SYNTAX: " << std::endl
+			<< "  sendfile [options] [filepath] [filedestinationpath]" << std::endl << std::endl
+			<< "  Options:" << std::endl
+			<< "     -s: to add a usual file destination (for the session)" << std::endl;
+		return false;
+	}
 	return true;
 }
 
 int File::getFile(const SOCKET& sckt, std::string command, bool debug)
 {	
-	while ((const char*)command.at(command.length() - 1) == " ") {
+	// Get rid of any whitespaces at the end of the command
+	while (command.at(command.length() - 1) == 0x20) 
+	{
 		command.pop_back();
 	}
-	if (!correctGetCommandSyntax(command)) {
-		return -1;
-	}
 
-	std::string savePath = "";
-	std::string fileName = "";
-	size_t lastSpace = command.find_last_of(" ", command.length());
+	// check if the syntax of the command is correct
+	if (!correctGetCommandSyntax(command)) return -1;
 
-	if ((const char*)command.at(8) == "-") {
-		if ((const char*)command.at(9) == "s") {
-			savePath = command.substr(lastSpace, command.length() - lastSpace + 1) + "\\";
-		}
-		else if ((const char*)command.at(9) == "p") {
-			savePath = command.substr(lastSpace, command.length() - lastSpace + 1) + "\\";
-			// TODO: add support for memorization of cross-session data
-		}
-		fileName = command.substr(12, lastSpace - 12);
-	}
-	else {
-		fileName = command.substr(8, command.length() - 8);
-	}
+	std::string savePath;
+	std::string fileName;
+	size_t startOfPath = command.find_last_of(":") - 1;
 
+	// Get whatever is between "getfile " and savepath, it will later check if this is either a path or just a file name
+	fileName = command.substr(8, startOfPath-9);
+	savePath = command.substr(startOfPath, command.length() - startOfPath + 1) + "\\"; // Get savepath
+
+	// Make the command the program will send to the server, convert it to unsigned char, and send it
 	std::string finalCommand = "getfile " + fileName;
-	std::cout << finalCommand;
 	std::vector<unsigned char> inputCommand(finalCommand.begin(), finalCommand.end());
 	Message::sendMsg(sckt, inputCommand, "f", debug);
 
+	// Get response from the server
 	std::vector<unsigned char> fileData = Message::recvMsg(sckt, debug);
-	if (fileData[0] == 0x45 && fileData[1] == 0x45) {
-		fileData.erase(fileData.begin());
-		fileData.erase(fileData.begin());
+
+	// Error handling, if the server didnt find filename or filepath
+	if (fileData[0] == 0x45 && fileData[1] == 0x45) 
+	{
+		fileData.erase(fileData.begin()+2);
 		std::cout << fileData.data();
 		return -1;
 	}
-	else {
-		std::string fileNameAndPath = savePath + fileName;
-		std::ofstream fileStream(fileNameAndPath, std::ios::out | std::ios::binary);
 
-		if (fileStream.is_open())
-		{
-			fileStream.write((char*)fileData.data(), fileData.size());
-			fileStream.close();
-		}
-		return 1;
+	// Check if whatever was between getfile and savepath was a path, if so extract the file name as we will need it to write the file
+	if (fileName.find(":") != std::string::npos) 
+	{
+		size_t lastBackSlash = fileName.find_last_of("\\");
+		fileName = fileName.substr(lastBackSlash, fileName.length() - lastBackSlash);
 	}
+
+	// Make the final savepath with the filename
+	std::string fileNameAndPath = savePath + fileName;
+
+	// Create the output file stream
+	std::ofstream fileStream(fileNameAndPath, std::ios::out | std::ios::binary);
+
+	// If the stream is open
+	if (fileStream.is_open())
+	{
+		fileStream.write((char*)fileData.data(), fileData.size());
+		fileStream.close();
+	}
+	else
+	{
+		std::cout << "Invalid save path!" << std::endl;
+	}
+
+	// Print the current dir
+	std::cout << getCurrentDir(sckt);
+	return 1;
 }
 
 int File::sendFile(const SOCKET& sckt, std::string command, bool debug)
 {
-	return 0;
+	if (!correctSendCommandSyntax(command)) return -1;
+	return 1;
 }

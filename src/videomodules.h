@@ -6,7 +6,8 @@
 #include <fstream>
 #include <mutex>
 
-class safeString {
+class safeString 
+{
 private:
 	std::mutex lock;
 	std::string data;
@@ -25,7 +26,8 @@ public:
 	}
 };
 
-namespace Video {
+namespace Video 
+{
 
 	std::vector<unsigned char> receiveFrameBuffers(const SOCKET& sckt, bool askForNextFrame, bool debug);
 

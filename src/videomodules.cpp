@@ -1,7 +1,8 @@
 #include "videomodules.h"
 
 
-namespace Video {
+namespace Video 
+{
 	// Receives frame buffers and if asked to continue, it will send the command to the server (the "continue" command)
 	std::vector<unsigned char> receiveFrameBuffers(const SOCKET& sckt, bool askForNextFrame, bool debug)
 	{
@@ -9,7 +10,8 @@ namespace Video {
 		std::vector<unsigned char> frameBuffer;
 
 		frameBuffer = Message::recvMsg(sckt, debug);
-		if (askForNextFrame) {
+		if (askForNextFrame) 
+		{
 			std::vector<unsigned char> Input(continueCommand.begin(), continueCommand.end());
 			Message::sendMsg(sckt, Input, "v", debug);
 		}

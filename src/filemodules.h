@@ -4,10 +4,13 @@
 #include <fstream>
 #include "socketfuncs.h"
 
-namespace File {
-	bool checkIfValidPath(std::string dir);
+namespace File 
+{
+	std::string getCurrentDir(const SOCKET& sckt);
 
 	bool correctGetCommandSyntax(std::string command);
+
+	bool correctSendCommandSyntax(std::string command);
 
 	int getFile(const SOCKET& sckt, std::string command, bool debug);
 

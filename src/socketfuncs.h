@@ -16,7 +16,8 @@
 #pragma comment(lib, "Ws2_32.lib")
 #define PACKET_SIZE 10000
 
-namespace Message {
+namespace Message 
+{
 	SOCKET createSocket(LPCSTR IPAdress, LPCSTR Port, bool makingClient, bool debug);
 
 	std::vector<unsigned char> recvAll(const SOCKET& sckt, unsigned int nOfBytesToRecv);
