@@ -8,6 +8,7 @@ import io
 import re
 
 PACKET_SIZE = 10000
+MAX_FILE_SIZE = 2000000000
 
 # Creates and connects to a client socket
 def connectSocket(HOST, PORT, debug: bool = False) -> socket:
@@ -42,7 +43,7 @@ def sendMsg(sckt: socket, dataToSend: bytearray, typeOfRequest: int,  debug: boo
 
             sckt.sendall(packet)
             if debug:
-                print("[SENT] Header: packetLength", packetLength, " | nOfPacketsLeft ", packetPackets, " | typeOfRequest ", typeOfRequest)
+                print(f"[SENT] Header: packetLength {packetLength} | nOfPacketsLeft {packetPackets} | typeOfRequest {typeOfRequest}")
     except (Exception):
         return
 
@@ -73,7 +74,7 @@ def recvMsg(sckt: socket, debug: bool = False) -> tuple:
         payload = recvAll(sckt, packetLength)
         receivedData += (payload)
         if debug:
-            print("[RECEIVED] Header: packetLength: ", packetLength, " | nOfPacketsLeft ", packetPackets, " | typeOfRequest ", typeOfRequest, payload)
+            print(f"[RECEIVED] Header: packetLength {packetLength} | nOfPacketsLeft {packetPackets} | typeOfRequest {typeOfRequest}")
 
         # Check if an error occurred during the first packet fetching
         while packetPackets > 0:
@@ -109,6 +110,7 @@ def mainServer(HOST, PORT, debug: bool = False):
 
     sendMsg(clientSocket, f"{currentDirectory}>".encode(), 0x63, debug)
     while True:
+        print("\nim back here")
         typeOfRequest, command = recvMsg(clientSocket, debug)
         try:
             command: str = command.decode()
@@ -116,7 +118,7 @@ def mainServer(HOST, PORT, debug: bool = False):
             command = "EXIT0x02"
         # DEBUG
         if debug and not command == "":
-            print("[DEBUG] Command: ", command, " typeOfRequest: ", typeOfRequest)
+            print(f"[DEBUG] Command: {command} typeOfRequest: {typeOfRequest}")
 
         # Check for errors / exit command
         if command == "EXIT0x01":
@@ -131,7 +133,7 @@ def mainServer(HOST, PORT, debug: bool = False):
 
             # Getting current directory
             if command == "dir":
-                command = f'{command} "{currentDirectory}\\"'
+                command = f'dir "{currentDirectory}\\"'
             if command == "cd ..":
                 currentDirectory = currentDirectory[:currentDirectory.rfind('\\')]
             if command.find("cd .") == -1 and command.find("cd ") != -1 and not re.match("[A-Z]:", command[3:]) and os.path.exists(f"{currentDirectory}\\{command[3:]}"):
@@ -150,7 +152,7 @@ def mainServer(HOST, PORT, debug: bool = False):
 
             # DEBUG
             if debug and not output.stdout == "":
-                print("[DEBUG] Command output: ", output.stdout)
+                print(f"[DEBUG] Command output: {output.stdout}")
 
         # If the request is a video request (0x76 is "v" in ascii, it stands for video)
         if typeOfRequest == 0x76:
@@ -167,7 +169,7 @@ def mainServer(HOST, PORT, debug: bool = False):
             # If the video request if a video stop request
             if "stop" in command:
                 startedVideoShare = False
-                sendMsg(clientSocket, b"Video stream stopped!", 0x63, debug)
+                sendMsg(clientSocket, b"[VIDEO] Video stream stopped!", 0x63, debug)
             
             # If the video request is a video continue command
             if "continue" in command:
@@ -182,17 +184,38 @@ def mainServer(HOST, PORT, debug: bool = False):
 
             # If the file request is a "getfile" request
             if "getfile" in command:
-                filePath = currentDirectory + "\\" + command[8:] if command.find(":") == -1 else command[8:] # Construct the file path
-                if os.path.getsize(filePath) < 2000000000 and os.path.exists(filePath): # Check if its bigger than 2GB and if the path exists
+
+                # Define the file path
+                filePath = f"{currentDirectory}\\{command[8:]}" if command.find(":") == -1 else command[8:] 
+
+                # Check if its bigger than 2GB and if the path exists
+                if os.path.exists(filePath) and os.path.getsize(filePath) < MAX_FILE_SIZE :
                     # Read and send the file data
                     with open(filePath, "rb") as reader:
                         fileData = reader.read()
                         sendMsg(clientSocket, fileData, 0x66, debug)
-                        sendMsg(clientSocket, f"{currentDirectory}>".encode(), 0x66, debug)
+
+                # If one of the conditions above isnt met, send an error message
                 else:
-                    errorMessage = b"EE" + b"No file with name " + command[8:].encode() + b" in " + currentDirectory.encode() + b"\n" + f"{currentDirectory}>".encode()
+                    errorMessage = f"EENo file with name {command[8:]} in {currentDirectory}\n>".encode()
                     sendMsg(clientSocket, errorMessage, 0x63, debug)
                     print("ERROR")
+            
+            if "sendfile " in command:
+                
+                # Get file name and save path if given any
+                colonPos = command.find(":")
+                fileName = command[9:] if colonPos == -1 else command[9:colonPos-2]
+                savePath = f"{currentDirectory}\\{fileName}" if colonPos == -1 else f"{command[colonPos-1:]}\\{fileName}"
+
+                # Get file data
+                _, fileData = recvMsg(clientSocket, debug)
+
+                # Write the data @ the save path
+                with open(savePath, "wb") as writer:
+                    writer.write(fileData)
+
+                
                      
 
 

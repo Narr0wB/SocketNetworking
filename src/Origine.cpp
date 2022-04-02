@@ -53,12 +53,15 @@ int main()
 			isReceivingVideo = true;
 			Video::showFrames(sckt, true, true);
 		}
+		// If the command is getfile
 		if (command.find("getfile") != std::string::npos) {
+			// If the client is already receiving video
 			if (isReceivingVideo) 
 			{
 				Video::showFrames(sckt, false, true);
 				
 				File::getFile(sckt, command, true);
+				std::cout << currentDir.data();
 
 				command = "video start";
 				(*actualCommand).setData(command);
@@ -66,6 +69,7 @@ int main()
 			else 
 			{
 				File::getFile(sckt, command, true);
+				std::cout << currentDir.data();
 
 				command = "";
 				(*actualCommand).setData(command);
@@ -78,6 +82,7 @@ int main()
 				Video::showFrames(sckt, false, true);
 
 				File::sendFile(sckt, command, true);
+				std::cout << currentDir.data();
 
 				command = "video start";
 				(*actualCommand).setData(command);
@@ -85,6 +90,7 @@ int main()
 			else 
 			{
 				File::sendFile(sckt, command, true);
+				std::cout << currentDir.data();
 
 				command = "";
 				(*actualCommand).setData(command);

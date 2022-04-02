@@ -2,7 +2,10 @@
 #include <iostream>
 #include <thread>
 #include <fstream>
+#include <string>
 #include "socketfuncs.h"
+
+#define MAX_FILE_SIZE 2000000000
 
 namespace File 
 {
