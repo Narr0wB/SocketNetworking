@@ -166,6 +166,13 @@ int File::sendFile(const SOCKET& sckt, std::string command, bool debug)
 	// Create the file stream
 	std::ifstream fileStream(filePath, std::ios::binary | std::ios::in | std::ios::ate);
 
+	// Check if the file path is valid
+	if (!fileStream.is_open()) 
+	{
+		std::cout << "Invalid file path!" << std::endl;
+		return -1;
+	}
+
 	// Get file size and check if its bigger than 2GB
 	auto fileSize = fileStream.tellg();
 	if (fileSize > MAX_FILE_SIZE) { std::cout << "File's too big";  return -1; }
@@ -173,18 +180,10 @@ int File::sendFile(const SOCKET& sckt, std::string command, bool debug)
 	// Create the file buffer to send
 	std::vector<unsigned char> fileBuffer(fileSize);
 
-	// Check if the file path is valid
-	if (fileStream.is_open())
-	{
-		fileStream.seekg(0, std::ios::beg);
-		fileStream.read((char*)fileBuffer.data(), fileSize);
-		fileStream.close();
-	}
-	else
-	{
-		std::cout << "Invalid file path!" << std::endl;
-		return -1;
-	}
+	// Read the file and load the buffer
+	fileStream.seekg(0, std::ios::beg);
+	fileStream.read((char*)fileBuffer.data(), fileSize);
+	fileStream.close();
 
 	// Make the command the program will send to the server, convert it to unsigned char, and send it as a file request
 	if (firstColon == lastColon) finalCommand = "sendfile " + fileName;

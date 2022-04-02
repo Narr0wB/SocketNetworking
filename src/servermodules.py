@@ -54,7 +54,7 @@ def recvAll(sckt: socket, n: int) -> bytearray:
         while (len(payload) < n):
             payload += sckt.recv(n-len(payload))
         return payload
-    except (Exception):
+    except:
         return b'EXIT0x02'
 
 #                                                                              number of packets left to receive
