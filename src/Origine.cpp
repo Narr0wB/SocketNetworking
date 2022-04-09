@@ -28,12 +28,14 @@ void getCommand(std::shared_ptr<safeString> sharedCommand)
 
 int main() 
 {
-	
+	cv::utils::logging::setLogLevel(cv::utils::logging::LOG_LEVEL_SILENT);
 	SOCKET sckt = Message::createSocket("127.0.0.1", "8081", true, true);
 
 	std::string command;
 	std::shared_ptr<safeString> actualCommand = std::make_shared<safeString>();
 	std::thread getCommandThread = std::thread(getCommand, actualCommand);
+	std::string s_continueCommand = "continue";
+	std::vector<unsigned char> c_continueCommand(s_continueCommand.begin(), s_continueCommand.end());
 	bool isReceivingVideo = false;
 
 	std::vector<unsigned char> currentDir = Message::recvMsg(sckt, false);
@@ -48,23 +50,26 @@ int main()
 			{
 				std::vector<unsigned char> startVideoCommand(command.begin(), command.end());
 				Message::sendMsg(sckt, startVideoCommand, "v", false);
+				std::cout << currentDir.data();
 			}
 
 			isReceivingVideo = true;
-			Video::showFrames(sckt, true, true);
+			Video::showFrames(sckt, true, false);
 		}
 		// If the command is getfile
 		if (command.find("getfile") != std::string::npos) {
 			// If the client is already receiving video
 			if (isReceivingVideo) 
 			{
-				Video::showFrames(sckt, false, true);
+				Video::showFrames(sckt, false, false);
 				
 				File::getFile(sckt, command, true);
 				std::cout << currentDir.data();
 
 				command = "video start";
 				(*actualCommand).setData(command);
+
+				Message::sendMsg(sckt, c_continueCommand, "v", false);
 			}
 			else 
 			{
@@ -79,13 +84,15 @@ int main()
 		{
 			if (isReceivingVideo) 
 			{
-				Video::showFrames(sckt, false, true);
+				Video::showFrames(sckt, false, false);
 
 				File::sendFile(sckt, command, true);
 				std::cout << currentDir.data();
 
 				command = "video start";
 				(*actualCommand).setData(command);
+
+				Message::sendMsg(sckt, c_continueCommand, "v", false);
 			}
 			else 
 			{
@@ -100,7 +107,7 @@ int main()
 		{
 			if (isReceivingVideo) 
 			{
-				Video::showFrames(sckt, false, true);
+				Video::showFrames(sckt, false, false);
 			
 				std::vector<unsigned char> inputCommand(command.begin(), command.end());
 				Message::sendMsg(sckt, inputCommand, "c", true);
@@ -110,6 +117,8 @@ int main()
 
 				command = "video start";
 				(*actualCommand).setData(command);
+
+				Message::sendMsg(sckt, c_continueCommand, "v", false);
 			}
 			else 
 			{
@@ -128,7 +137,7 @@ int main()
 		{
 			if (isReceivingVideo) 
 			{
-				Video::showFrames(sckt, false, true);
+				Video::showFrames(sckt, false, false);
 
 				std::vector<unsigned char> inputCommand(command.begin(), command.end());
 				Message::sendMsg(sckt, inputCommand, "v", true);
@@ -137,14 +146,18 @@ int main()
 				std::cout << response.data() << std::endl;
 
 				isReceivingVideo = false;
-
+				cv::destroyAllWindows();
 			}
 			else 
 			{
 				std::cout << "[ERROR] The video stream has not started yet!" << std::endl;
 			}
+			std::cout << currentDir.data();
 			command = "";
 			(*actualCommand).setData(command);
+		}
+		if (command.find("debug") != std::string::npos) {
+
 		}
 	}
 

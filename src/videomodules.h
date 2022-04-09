@@ -1,10 +1,11 @@
-
-#include "socketfuncs.h"
-//#include <opencv2/imgcodecs.hpp>
-//#include <opencv2/highgui.hpp>
+#include <opencv2/imgcodecs.hpp>
+#include <opencv2/highgui.hpp>
+#include <opencv2/core/utils/logger.hpp>
 #include <stdlib.h>
 #include <fstream>
 #include <mutex>
+
+#include "socketfuncs.h"
 
 class safeString 
 {

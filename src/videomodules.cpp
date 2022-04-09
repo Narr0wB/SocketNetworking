@@ -10,6 +10,7 @@ namespace Video
 		std::vector<unsigned char> frameBuffer;
 
 		frameBuffer = Message::recvMsg(sckt, debug);
+
 		if (askForNextFrame) 
 		{
 			std::vector<unsigned char> Input(continueCommand.begin(), continueCommand.end());
@@ -22,17 +23,11 @@ namespace Video
 	// Still have to implement a way to display the image consistently --> OpenCV, OpenGL, GLFW, ImGui...
 	void showFrames(const SOCKET& sckt, bool askForNextFrame, bool debug)
 	{
-		std::vector<unsigned char> frameBuffer;
+		std::vector<unsigned char> frameBuffer = receiveFrameBuffers(sckt, askForNextFrame, debug);
 
-		frameBuffer = receiveFrameBuffers(sckt, askForNextFrame, debug);
 		// Temporary solution
-		std::cout << frameBuffer.size();
-		std::ofstream binFile("received.png", std::ios::out | std::ios::binary);
-		if (binFile.is_open())
-		{
-			binFile.write((char*)frameBuffer.data(), frameBuffer.size());
-			binFile.close();
-		}
-
-}
+		cv::Mat img = cv::imdecode(cv::Mat(1, frameBuffer.size(), CV_8UC1, frameBuffer.data()), cv::IMREAD_UNCHANGED);
+		cv::imshow("Window", img);
+		cv::waitKey(1);
+	}
 }

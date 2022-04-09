@@ -14,7 +14,7 @@
 #include <vector>
 
 #pragma comment(lib, "Ws2_32.lib")
-#define PACKET_SIZE 10000
+#define PACKET_SIZE 50000
 
 namespace Message 
 {

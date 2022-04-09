@@ -7,7 +7,7 @@ import socket
 import io
 import re
 
-PACKET_SIZE = 10000
+PACKET_SIZE = 50000
 MAX_FILE_SIZE = 2000000000
 
 # Creates and connects to a client socket
