@@ -10,13 +10,13 @@ Screensharing:
 
 File transfer
 
- - **getfile [filename | filepath] [savepath]** - retrieves a file present in the server and saves it at a specific path\
+ - **getfile [filename | filepath] [savepath]** - retrieves a file present in the server and saves it at a specific path
 
 &emsp;&emsp;&emsp;**[filename | filepath]** - the path of the file on the server\
-&emsp;&emsp;&emsp;**[savepath]** - where on the client to save the file\
+&emsp;&emsp;&emsp;**[savepath]** - where on the client to save the file
 
-- **sendfile [filepath] [OPTIONAL: filedestinationpath]** - sends a file present in the client and saves it at a specific path\
+- **sendfile [filepath] [OPTIONAL: filedestinationpath]** - sends a file present in the client and saves it at a specific path
 
 &emsp;&emsp;&emsp;**[filepath]** - the path of the file to be sent (on the client)\
-&emsp;&emsp;&emsp;**[OPTIONAL: filedestinationpath]** - where on the server to save the file (if the path is not put, it will be saved in \
-&emsp;&emsp;&emsp;the current working directory of the reverse shell)\
+&emsp;&emsp;&emsp;**[OPTIONAL: filedestinationpath]** - where on the server to save the file (if the path is not put, it will be saved in\
+&emsp;&emsp;&emsp;the current working directory of the reverse shell)
